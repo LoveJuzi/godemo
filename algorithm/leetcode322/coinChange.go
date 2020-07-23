@@ -1,5 +1,6 @@
 package leetcode322
 
+// 这个算法写的不好，可以改进
 func coinChange(coins []int, amount int) int {
 	if amount == 0 {
 		return 0
