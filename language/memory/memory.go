@@ -5,6 +5,7 @@ type Node struct {
 	a int
 	b int
 	c **int
+	d [1 << 31]int
 }
 
 // ModifyA 修改 a 的值
