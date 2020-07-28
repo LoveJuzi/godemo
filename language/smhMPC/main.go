@@ -2,8 +2,15 @@ package main
 
 import "fmt"
 
+func test(A []struct{}) {
+	fmt.Println(A[0])
+}
+
 func main() {
-	MPCMain(3, 10) // 3个生产者，10个消费者
+	A := [1 << 32]struct{}{}
+	test(A[:])
+	// fmt.Println(A)
+	// MPCMain(3, 10) // 3个生产者，10个消费者
 }
 
 // SIZE 生产者消费者通道的大小
