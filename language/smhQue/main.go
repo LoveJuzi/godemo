@@ -31,6 +31,14 @@ func NewTQueue(l int) *TQueue {
 	}
 }
 
+// RleaseTQueue 释放不必要的资源
+func RleaseTQueue(tq *TQueue) {
+	close(tq.fullch)
+	close(tq.emptych)
+	close(tq.popmutex)
+	close(tq.pushmutex)
+}
+
 func idxplusplus(idx int, l int) int {
 	return (idx + 1) % l
 }
@@ -84,7 +92,10 @@ func Pop(tq *TQueue) int {
 func main() {
 	done1 := make(chan struct{})
 	done2 := make(chan struct{})
+	defer close(done1)
+	defer close(done2)
 	tq := NewTQueue(5)
+	defer RleaseTQueue(tq)
 
 	go func() {
 		for i := 0; i < 50; i++ {
