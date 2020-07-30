@@ -10,29 +10,28 @@ import (
 // SIZE 队列大小
 const SIZE = 1 << 10
 
-type taskFun func()
-
-func task(taskfunc func(), recoverfuncs ...func()) <-chan struct{} {
+func task(f func(), rfs ...func()) <-chan struct{} {
 	done := make(chan struct{})
 	go func() {
 		defer func() { done <- struct{}{} }() // 退出信号
-		defer func() {                        // 异常捕获
+		defer recover()                       // 捕获二次panic
+		defer func() {                        // 捕获任务panic
 			if err := recover(); err != nil {
 				// 记录异常日志
 				fmt.Println(err)
 
-				for _, v := range recoverfuncs {
+				for _, v := range rfs {
 					v()
 				}
 			}
 		}()
 
-		taskfunc()
+		f()
 	}()
 	return done
 }
 
-func taskRWMain(ch <-chan int8) taskFun {
+func taskRWMain(ch <-chan int8) func() {
 	return func() {
 		RWMain(ch)
 	}
@@ -48,11 +47,13 @@ func RWMain(ch <-chan int8) {
 	rs := make(chan struct{}, 1<<31) // 读者完成队列
 	wg := &sync.WaitGroup{}          // 正在读的读者计数器
 
-	T := task(func() { // 读者读取完毕，需要通知计数减少
+	task(func() { // 读者读取完毕，需要通知计数减少
 		for range rs {
 			wg.Done()
 		}
 	})
+	defer close(rs) // 结束上面的task，防止goroutine资源不被释放
+
 	waitAllReaderExit := func() {
 		wg.Wait()
 	}
@@ -83,11 +84,9 @@ func RWMain(ch <-chan int8) {
 	close(wch)
 	<-T1
 	<-T2
-	close(rs)
-	<-T
 }
 
-func taskGenerateReader(ch chan int8, rs chan<- struct{}) taskFun {
+func taskGenerateReader(ch chan int8, rs chan<- struct{}) func() {
 	return func() {
 		GenerateReader(ch, rs)
 	}
@@ -104,7 +103,7 @@ func GenerateReader(ch chan int8, rs chan<- struct{}) {
 	}
 }
 
-func taskGenerateWriter(ch chan int8, ws <-chan struct{}) taskFun {
+func taskGenerateWriter(ch chan int8, ws <-chan struct{}) func() {
 	return func() {
 		GenerateWriter(ch, ws)
 	}
@@ -121,13 +120,13 @@ func GenerateWriter(ch chan int8, ws <-chan struct{}) {
 	}
 }
 
-func taskReader(r int8) taskFun {
+func taskReader(r int8) func() {
 	return func() {
 		Reader(r)
 	}
 }
 
-func taskWriter(w int8) taskFun {
+func taskWriter(w int8) func() {
 	return func() {
 		Writer(w)
 	}
