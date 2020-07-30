@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"time"
 )
 
 func safeClose(ch chan interface{}) {
@@ -19,7 +18,7 @@ func main() {
 	}, ch)
 	<-T
 	T = task(func() {
-		time.Sleep(10 * time.Second)
+		// time.Sleep(10 * time.Second)
 	}, ch)
 	<-T
 }
@@ -28,6 +27,7 @@ func task(f func(), chs ...chan string) <-chan struct{} {
 	d := make(chan struct{})
 	go func() {
 		defer func() { d <- struct{}{} }()
+		defer recover() // 防止二次产生panic
 		defer func() {
 			if err := recover(); err != nil {
 				fmt.Println(err)

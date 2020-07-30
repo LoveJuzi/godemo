@@ -42,24 +42,25 @@ func MPCMain(m, n int) {
 	}
 }
 
-func task(taskfunc func(), recoverfuncs ...func()) <-chan struct{} {
+func task(f func(), rfs ...func()) <-chan struct{} {
 	done := make(chan struct{})
 	go func() {
 		defer func() { done <- struct{}{} }() // 退出信号
-		defer func() {                        // 异常捕获
+		defer recover()                       // 捕获二次产生panic
+		defer func() {                        // 捕获任务的panic
 			if err := recover(); err != nil {
 				// 记录异常日志
 				fmt.Println("======>", err)
 
 				// 执行异常恢复函数
 				// 通常会导致其他相关协程产生异常，而退出
-				for _, v := range recoverfuncs {
+				for _, v := range rfs {
 					v()
 				}
 			}
 		}()
 
-		taskfunc()
+		f()
 	}()
 	return done
 }
