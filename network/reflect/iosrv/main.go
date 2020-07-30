@@ -50,11 +50,6 @@ func handle(conn net.Conn) {
 	for idx := range done {
 		done[idx] = make(chan struct{}, 1)
 	}
-	defer func() {
-		for _, v := range done {
-			close(v)
-		}
-	}()
 
 	sktSendCh := make(chan string, 1)
 	sdOutCh := make(chan string, 1)
