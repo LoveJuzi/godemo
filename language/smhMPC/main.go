@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"sync"
 )
 
 func main() {
@@ -96,6 +95,17 @@ func t1(chs []<-chan string, id int) {
 	<-T2
 }
 
+func t2(chs []chan<- string, id int) {
+	ch1 := make(chan string)
+
+	T1 := task(taskProducer(ch1, id))
+	T2 := task(tasktt2(chs, ch1))
+
+	<-T1
+	close(ch1)
+	<-T2
+}
+
 func tasktt1(chs []<-chan string, ch1 chan<- string) taskFun {
 	return func() {
 		tt1(chs, ch1)
@@ -106,42 +116,37 @@ func tasktt1(chs []<-chan string, ch1 chan<- string) taskFun {
 func tt1(chs []<-chan string, ch1 chan<- string) {
 	T := []<-chan struct{}{}
 	for _, ch := range chs {
-		T = append(T, task(taskttt1(ch, ch1)))
+		T = append(T, task(taskcopych(ch, ch1)))
 	}
 	for _, v := range T {
 		<-v
 	}
 }
 
-func taskttt1(ch <-chan string, ch1 chan<- string) taskFun {
+func tasktt2(chs []chan<- string, ch1 <-chan string) taskFun {
 	return func() {
-		ttt1(ch, ch1)
+		tt2(chs, ch1)
 	}
 }
 
-func ttt1(ch <-chan string, ch1 chan<- string) {
+func tt2(chs []chan<- string, ch1 <-chan string) {
+	T := []<-chan struct{}{}
+	for _, ch := range chs {
+		T = append(T, task(taskcopych(ch1, ch)))
+	}
+	for _, v := range T {
+		<-v
+	}
+}
+
+func taskcopych(ch <-chan string, ch1 chan<- string) taskFun {
+	return func() {
+		copych(ch, ch1)
+	}
+}
+
+func copych(ch <-chan string, ch1 chan<- string) {
 	for v := range ch {
 		ch1 <- v
 	}
-}
-
-func t2(chs []chan<- string, id int) {
-	ch1 := make(chan string)
-
-	wg := &sync.WaitGroup{}
-	go func() {
-		for _, ch := range chs {
-			wg.Add(1)
-			go func(ch chan<- string) {
-				for v := range ch1 {
-					ch <- v
-				}
-				wg.Done()
-			}(ch)
-		}
-	}()
-
-	Producer(ch1, id)
-	close(ch1)
-	wg.Wait() // 等待所有的生产数据写入到消息通道
 }
