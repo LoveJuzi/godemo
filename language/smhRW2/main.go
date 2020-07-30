@@ -11,11 +11,11 @@ import (
 const SIZE = 1 << 10
 
 func task(f func(), rfs ...func()) <-chan struct{} {
-	done := make(chan struct{})
+	d := make(chan struct{})
 	go func() {
-		defer func() { done <- struct{}{} }() // 退出信号
-		defer recover()                       // 捕获二次panic
-		defer func() {                        // 捕获任务panic
+		defer func() { d <- struct{}{} }() // 退出信号
+		defer recover()                    // 捕获二次panic
+		defer func() {                     // 捕获任务panic
 			if err := recover(); err != nil {
 				// 记录异常日志
 				fmt.Println(err)
@@ -28,7 +28,7 @@ func task(f func(), rfs ...func()) <-chan struct{} {
 
 		f()
 	}()
-	return done
+	return d
 }
 
 func taskRWMain(ch <-chan int8) func() {
@@ -62,8 +62,8 @@ func RWMain(ch <-chan int8) {
 		<-ws
 	}
 
-	T1 := task(taskGenerateReader(rch, rs))
-	T2 := task(taskGenerateWriter(wch, ws))
+	T1 := task(taskGenerateReader(rch, rs), func() { close(rch) })
+	T2 := task(taskGenerateWriter(wch, ws), func() { close(wch) })
 
 	for rw := range ch { // 分发任务
 		waitWriterExit()
@@ -86,14 +86,14 @@ func RWMain(ch <-chan int8) {
 	<-T2
 }
 
-func taskGenerateReader(ch chan int8, rs chan<- struct{}) func() {
+func taskGenerateReader(ch <-chan int8, rs chan<- struct{}) func() {
 	return func() {
 		GenerateReader(ch, rs)
 	}
 }
 
 // GenerateReader 生成读者
-func GenerateReader(ch chan int8, rs chan<- struct{}) {
+func GenerateReader(ch <-chan int8, rs chan<- struct{}) {
 	for r := range ch {
 		fmt.Println("读者队列长度：", len(ch))
 		go func(r int8) { // 这种写法很危险！！！
@@ -103,14 +103,14 @@ func GenerateReader(ch chan int8, rs chan<- struct{}) {
 	}
 }
 
-func taskGenerateWriter(ch chan int8, ws <-chan struct{}) func() {
+func taskGenerateWriter(ch <-chan int8, ws <-chan struct{}) func() {
 	return func() {
 		GenerateWriter(ch, ws)
 	}
 }
 
 // GenerateWriter 生成写者
-func GenerateWriter(ch chan int8, ws <-chan struct{}) {
+func GenerateWriter(ch <-chan int8, ws <-chan struct{}) {
 	for w := range ch {
 		fmt.Println("写者队列长度：", len(ch)+1)
 		go func(w int8) { // 这种写法非常的危险！！！
