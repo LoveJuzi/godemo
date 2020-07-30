@@ -6,26 +6,51 @@ import "fmt"
 const SIZE int = 1 << 4
 
 func main() {
-	ch := make(chan string, SIZE)
-	pchs := make(chan struct{})
-	cchs := make(chan struct{})
+	ch := make(chan string, SIZE) // 管道通信
 
-	defer close(ch)   // 这个会最后一个释放
-	defer close(pchs) // 这个会第二个释放
-	defer close(cchs) // 这个会优先释放
+	T1 := task(taskProducer(ch)) // 启动生产任务
+	T2 := task(taskConsumer(ch)) // 启动消费任务
 
-	go Producer(ch, pchs) // 启动生产者
-	go Consumer(ch, cchs) // 启动消费者
+	// 任务控制流
+	<-T1      // 等待T1任务结束
+	close(ch) // 通知T2任务结束
+	<-T2      // 等待T2任务结束
+}
 
-	<-pchs // 等待生产者生产完毕
+type taskFun func()
 
-	ch <- "" // 关闭消费者，需要等待生产者生产完毕
+func task(f taskFun) <-chan struct{} {
+	done := make(chan struct{})
+	go func() {
+		defer func() { done <- struct{}{} }() // 退出信号
+		defer func() {                        // 异常捕获
+			if err := recover(); err != nil {
+				// 记录异常日志
+				fmt.Println(err)
+			}
+		}()
 
-	<-cchs // 等待消费者消费完毕
+		f()
+	}()
+	return done
+}
+
+// 包装生产者任务
+func taskProducer(ch chan<- string) taskFun {
+	return func() {
+		Producer(ch)
+	}
+}
+
+// 包装消费者任务
+func taskConsumer(ch <-chan string) taskFun {
+	return func() {
+		Consumer(ch)
+	}
 }
 
 // Producer 生产者
-func Producer(ch chan string, chs chan struct{}) {
+func Producer(ch chan<- string) {
 	fmt.Println("生产者开始生产...")
 	for i := 0; i < 50; i++ {
 		product := fmt.Sprintf("产品%d", i+1)
@@ -33,23 +58,13 @@ func Producer(ch chan string, chs chan struct{}) {
 		ch <- product
 	}
 	fmt.Println("生产者结束生产...")
-	chs <- struct{}{}
 }
 
 // Consumer 消费者
-func Consumer(ch chan string, chs chan struct{}) {
+func Consumer(ch <-chan string) {
 	fmt.Println("消费者开始消费...")
-	var product string
-	for {
-		select {
-		case product = <-ch:
-			if product == "" {
-				goto DONE
-			}
-			fmt.Println("消费======>", product)
-		}
+	for product := range ch { // ch关闭后，循环会退出
+		fmt.Println("消费======>", product)
 	}
-DONE:
 	fmt.Println("消费者结束消费...")
-	chs <- struct{}{}
 }
