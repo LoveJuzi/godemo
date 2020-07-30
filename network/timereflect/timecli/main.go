@@ -5,23 +5,13 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
-	"sync"
 )
 
 func main() {
-	wg := &sync.WaitGroup{}
-	ch := make(chan struct{}, 1000) // 限制同一时间客户端的个数
-	for i := 0; i < 1; i++ {
-		wg.Add(1)
-		ch <- struct{}{}
-		go client(wg, ch)
-	}
-	wg.Wait()
+	client()
 }
 
-func client(wg *sync.WaitGroup, ch chan struct{}) {
-	defer wg.Done()
-	defer func() { <-ch }()
+func client() {
 	server := "127.0.0.1:8080"
 	addr, err := net.ResolveTCPAddr("tcp4", server)
 	if err != nil {
@@ -31,13 +21,6 @@ func client(wg *sync.WaitGroup, ch chan struct{}) {
 
 	//建立tcp连接
 	conn, err := net.DialTCP("tcp4", nil, addr)
-	if err != nil {
-		// 记录错误日志
-		os.Exit(1)
-	}
-
-	//向服务端发送数据
-	_, err = conn.Write([]byte("HEAD / HTTP/1.0\r\n\r\n"))
 	if err != nil {
 		// 记录错误日志
 		os.Exit(1)

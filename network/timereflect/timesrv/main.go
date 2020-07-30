@@ -8,6 +8,10 @@ import (
 )
 
 func main() {
+	serve()
+}
+
+func serve() {
 	tcpServer, err := net.ResolveTCPAddr("tcp4", ":8080")
 	if err != nil {
 		// 记录错误日志
@@ -26,7 +30,7 @@ func main() {
 			continue
 		}
 
-		go handle(conn)
+		go handle(conn) // 服务处理程序
 	}
 }
 
