@@ -12,7 +12,7 @@ const SIZE = 1 << 10
 
 type taskFun func()
 
-func task(f taskFun) <-chan struct{} {
+func task(taskfunc func(), recoverfuncs ...func()) <-chan struct{} {
 	done := make(chan struct{})
 	go func() {
 		defer func() { done <- struct{}{} }() // 退出信号
@@ -20,10 +20,14 @@ func task(f taskFun) <-chan struct{} {
 			if err := recover(); err != nil {
 				// 记录异常日志
 				fmt.Println(err)
+
+				for _, v := range recoverfuncs {
+					v()
+				}
 			}
 		}()
 
-		f()
+		taskfunc()
 	}()
 	return done
 }
@@ -148,7 +152,7 @@ func Writer(w int8) {
 func main() {
 	ch := make(chan int8, SIZE) // 读写主程序的接收队列
 
-	T := task(taskRWMain(ch))
+	T := task(taskRWMain(ch), func() { close(ch) })
 
 	task := []int8{0}
 	// task := []int8{0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
