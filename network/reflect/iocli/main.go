@@ -3,7 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"os"
 )
@@ -120,13 +120,19 @@ func SendBuff(conn net.Conn, ch <-chan string) {
 
 // RecieveBuff 从socket的接收缓冲区接收数据
 func RecieveBuff(conn net.Conn, ch chan<- string) {
-	b, err := ioutil.ReadAll(conn)
-	if err != nil {
-		// 记录错误日志
-		panic("client recieve error")
+	var ba [1 << 10]byte
+	for {
+		n, err := conn.Read(ba[:])
+		if err != nil {
+			if err == io.EOF {
+				fmt.Println("接收到EOF")
+				break
+			}
+			// 记录错误日志
+			break
+		}
+		ch <- string(ba[:n])
 	}
-
-	ch <- string(b)
 }
 
 // PrintBuff 打印数据到标准输出

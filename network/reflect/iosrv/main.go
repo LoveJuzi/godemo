@@ -125,12 +125,12 @@ func taskRecieveBuff(conn net.Conn, sktSendCh chan string, sdOutCh chan string) 
 // SendBuff 向socket的发送缓冲区发送数据
 func SendBuff(conn net.Conn, ch <-chan string) {
 	for v := range ch {
-		fmt.Println(v)
 		_, err := conn.Write([]byte(v))
 		if err != nil {
 			// 记录错误日志
 			break
 		}
+		fmt.Println(v)
 	}
 }
 
