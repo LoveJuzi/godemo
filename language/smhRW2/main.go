@@ -192,6 +192,4 @@ func main() {
 
 	close(ch)
 	<-T
-
-	time.Sleep(time.Second * 10)
 }
