@@ -182,7 +182,6 @@ func main() {
 
 	T := task(taskRWMain(ch), func() { close(ch) })
 
-	// task := []int8{0}
 	task := []int8{0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
 	for _, v := range task {
 		ch <- v
