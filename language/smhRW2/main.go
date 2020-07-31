@@ -7,27 +7,34 @@ import (
 	"time"
 )
 
-// SIZE 队列大小
-const SIZE = 1 << 10
+// task 就是任务模板
+// 当我们启动一个新的goroutine的时候，我们相当于启动了一个新的任务
+// 每个任务都有可能出现不同程度的异常
+// task 任务模板的作用就是描述如何处理这些不同程度的异常
+// 以及如何恢复自身任务和其他任务的关系
 
-func task(f func(), rfs ...func()) <-chan struct{} {
-	d := make(chan struct{})
-	go func() {
-		defer func() { d <- struct{}{} }() // 退出信号
-		defer recover()                    // 捕获一切异常
-		ch := make(chan struct{})          // 后台任务退出信号
-		bgtask(f, ch, rfs...)              // 处理任务异常
-		<-ch
-	}()
-	return d
-}
+// 这里写了两个不同的任务模板，一个是“bgtask”，一个是“task”
+// bgtask 是一个后台任务模板
+// 入参有三种类型，一个是任务函数，一个是退出信号通道
+// 另一个是异常恢复函数集
+// bgtask的功能是：
+//   1. 执行任务函数
+//   2. 如果任务函数执行异常，使用异常恢复函数集进行恢复
+//   3. 发送退出信号到退出信号通道
+//   4. 捕获一切此此函数中的异常
+// task 是一个同步任务模板
+// 入参有两种类型，一个是任务函数，一个是异常恢复函数集
+// task的功能是：
+//   1. 执行任务函数（此处使用bgtask进行执行）
+//   2. 发送退出信号
+//   3. 捕获一切此函数中的异常
 
 // 一系列同质的后台任务，也是一个脱离管理的异步任务，只能通过发送退出信号表示退出
 // ech 用来存储任务退出的信号
 func bgtask(f func(), ech chan<- struct{}, rfs ...func()) {
 	go func() {
+		defer recover()                      // 捕获一切异常
 		defer func() { ech <- struct{}{} }() // 发送退出信号
-		defer recover()                      // 捕获二次panic
 		defer func() {                       // 捕获任务panic
 			if err := recover(); err != nil {
 				// 记录异常日志
@@ -43,11 +50,26 @@ func bgtask(f func(), ech chan<- struct{}, rfs ...func()) {
 	}()
 }
 
+func task(f func(), rfs ...func()) <-chan struct{} {
+	d := make(chan struct{})
+	go func() {
+		defer recover()                    // 捕获一切异常
+		defer func() { d <- struct{}{} }() // 发送退出信号
+		ch := make(chan struct{})          // 后台任务退出信号
+		bgtask(f, ch, rfs...)              // 后台处理任务
+		<-ch                               // 等待后台任务结束
+	}()
+	return d
+}
+
 func taskRWMain(ch <-chan int8) func() {
 	return func() {
 		RWMain(ch)
 	}
 }
+
+// SIZE 队列大小
+const SIZE = 1 << 10
 
 // RWMain 读者写者主程序
 // rs 管道看似多余，其实，这是一种通信管理方式
@@ -74,8 +96,8 @@ func RWMain(ch <-chan int8) {
 		<-ws
 	}
 
-	T1 := task(taskGenerateReader(rch, rs), func() { close(rch) })
-	T2 := task(taskGenerateWriter(wch, ws), func() { close(wch) })
+	T1 := task(taskGenerateReader(rch, rs), func() { close(rch) }, func() { close(rs) })
+	T2 := task(taskGenerateWriter(wch, ws), func() { close(wch) }, func() { close(ws) })
 
 	for rw := range ch { // 分发任务
 		waitWriterExit()
