@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"net"
@@ -10,6 +9,37 @@ import (
 
 func main() {
 	serve()
+}
+
+func bgtask(f func(), ech chan<- struct{}, rfs ...func()) {
+	go func() {
+		defer recover()                      // 捕获一切异常
+		defer func() { ech <- struct{}{} }() // 发送退出信号
+		defer func() {                       // 捕获任务panic
+			if err := recover(); err != nil {
+				// 记录异常日志
+				fmt.Println(err)
+
+				for _, v := range rfs {
+					v()
+				}
+			}
+		}()
+
+		f()
+	}()
+}
+
+func synctask(f func(), rfs ...func()) <-chan struct{} {
+	d := make(chan struct{})
+	go func() {
+		defer recover()                    // 捕获一切异常
+		defer func() { d <- struct{}{} }() // 发送退出信号
+		ch := make(chan struct{})          // 后台任务退出信号
+		bgtask(f, ch, rfs...)              // 后台处理任务
+		<-ch                               // 等待后台任务结束
+	}()
+	return d
 }
 
 func serve() {
@@ -35,102 +65,90 @@ func serve() {
 			continue
 		}
 
-		go handle(conn)
+		// 这其实是一个后台任务，但是由于我们不关注退出信号，
+		// 使用同步任务进行模拟一下
+		synctask(taskHandle(conn))
 	}
 }
 
 // CHEOF 通道结束符
 var CHEOF = string([]byte{0x01})
 
-// 各种资源的管理都在handle中处理
-func handle(conn net.Conn) {
+// Handle 各种资源的管理都在handle中处理
+func Handle(conn net.Conn) {
 	defer func() { conn.Close() }() // 服务端关闭连接
 
-	done := [3]chan struct{}{}
-	for idx := range done {
-		done[idx] = make(chan struct{}, 1)
-	}
+	ch1 := make(chan string)
+	ch2 := make(chan string)
 
-	sktSendCh := make(chan string, 1)
-	sdOutCh := make(chan string, 1)
+	T1 := synctask(taskRecieveBuff(conn, ch1, ch2), func() { close(ch1) }, func() { close(ch2) })
+	T2 := synctask(taskSendBuff(conn, ch1), func() { close(ch1) })
+	T3 := synctask(taskPrintBuff(ch2), func() { close(ch2) })
 
-	defer func() {
-		if err := recover(); err != nil {
-			// 记录异常日志
-			fmt.Println(err)
-		}
-	}()
-
-	go recieveBuff(conn, sktSendCh, sdOutCh, done[0])
-	go sendBuff(conn, sktSendCh, done[1])
-	go printBuff(sdOutCh, done[2])
-
-	<-done[0]
-
-	// 结束sendBuff和printBuff
-	sktSendCh <- CHEOF
-	sdOutCh <- CHEOF
-
-	<-done[1]
-	<-done[2]
+	<-T1       // 等待T1任务结束
+	close(ch1) // 通知T2任务结束
+	close(ch2) // 通知T3任务结束
+	<-T2       // 等待T2任务结束
+	<-T3       // 等待T3任务结束
 }
 
-func recieveBuff(conn net.Conn, sktSendCh chan string, sdOutCh chan string, done chan struct{}) {
-	defer func() { done <- struct{}{} }()
+func taskHandle(conn net.Conn) func() {
+	return func() {
+		Handle(conn)
+	}
+}
 
-	reader := bufio.NewReader(conn)
+// RecieveBuff 从socket的接收缓冲区读取数据
+func RecieveBuff(conn net.Conn, ch1 chan string, ch2 chan string) {
 	var ba [1 << 10]byte
 	for {
-		n, err := reader.Read(ba[:]) // 这里可能阻塞
+		n, err := conn.Read(ba[:])
 		if err != nil {
 			if err == io.EOF {
 				fmt.Println("接收到EOF")
 				break
 			}
 			// 记录错误日志
-			panic("read error")
+			break
 		}
-		sktSendCh <- string(ba[:n])
-		sdOutCh <- string(ba[:n])
+		ch1 <- string(ba[:n])
+		ch2 <- string(ba[:n])
 	}
 }
 
-func sendBuff(conn net.Conn, sktSendCh chan string, done chan struct{}) {
-	defer func() { done <- struct{}{} }()
+func taskRecieveBuff(conn net.Conn, sktSendCh chan string, sdOutCh chan string) func() {
+	return func() {
+		RecieveBuff(conn, sktSendCh, sdOutCh)
+	}
+}
 
-	for {
-		buff := <-sktSendCh
-
-		if buff == CHEOF {
+// SendBuff 向socket的发送缓冲区发送数据
+func SendBuff(conn net.Conn, ch <-chan string) {
+	for v := range ch {
+		fmt.Println(v)
+		_, err := conn.Write([]byte(v))
+		if err != nil {
+			// 记录错误日志
 			break
-		}
-
-		var err error
-		writer := bufio.NewWriter(conn)
-		_, err = writer.WriteString(buff)
-		if err != nil {
-			// 记录错误日志
-			panic("write error")
-		}
-
-		err = writer.Flush()
-		if err != nil {
-			// 记录错误日志
-			panic("write flush error")
 		}
 	}
 }
 
-func printBuff(sdOutCh chan string, done chan struct{}) {
-	defer func() { done <- struct{}{} }()
+func taskSendBuff(conn net.Conn, sktSendCh chan string) func() {
+	return func() {
+		SendBuff(conn, sktSendCh)
+	}
+}
 
-	for {
-		buff := <-sdOutCh
+// PrintBuff 标准输出输出内容
+func PrintBuff(ch <-chan string) {
+	for v := range ch {
+		fmt.Print(v)
+	}
+}
 
-		if buff == CHEOF {
-			break
-		}
-
-		fmt.Print(buff)
+func taskPrintBuff(ch <-chan string) func() {
+	return func() {
+		PrintBuff(ch)
 	}
 }

@@ -12,6 +12,37 @@ func main() {
 	client()
 }
 
+func bgtask(f func(), ech chan<- struct{}, rfs ...func()) {
+	go func() {
+		defer recover()                      // 捕获一切异常
+		defer func() { ech <- struct{}{} }() // 发送退出信号
+		defer func() {                       // 捕获任务panic
+			if err := recover(); err != nil {
+				// 记录异常日志
+				fmt.Println(err)
+
+				for _, v := range rfs {
+					v()
+				}
+			}
+		}()
+
+		f()
+	}()
+}
+
+func synctask(f func(), rfs ...func()) <-chan struct{} {
+	d := make(chan struct{})
+	go func() {
+		defer recover()                    // 捕获一切异常
+		defer func() { d <- struct{}{} }() // 发送退出信号
+		ch := make(chan struct{})          // 后台任务退出信号
+		bgtask(f, ch, rfs...)              // 后台处理任务
+		<-ch                               // 等待后台任务结束
+	}()
+	return d
+}
+
 func client() {
 	// 连接的地址
 	server := "127.0.0.1:8080"
@@ -39,10 +70,10 @@ func handle(conn net.Conn) {
 	// 任务分发
 	// 针对不同的任务类型，我们仅仅需要重新编写不同的任务模板，也就是task的实现方式
 	// golang语言使用这种方式，可以很好的进行任务并发
-	T1 := task(scanBuff(sktSendCh))
-	T2 := task(sendBuff(conn, sktSendCh))
-	T3 := task(recieveBuff(conn, sdOutCh))
-	T4 := task(printBuff(sdOutCh))
+	T1 := synctask(taskScanBuff(sktSendCh), func() { close(sktSendCh) })
+	T2 := synctask(taskSendBuff(conn, sktSendCh), func() { close(sktSendCh) })
+	T3 := synctask(taskRecieveBuff(conn, sdOutCh), func() { close(sdOutCh) })
+	T4 := synctask(taskPrintBuff(sdOutCh), func() { close(sdOutCh) })
 
 	// 任务执行顺序控制流
 	// 任务控制流最好在主程中进行描述，这样便于后期维护
@@ -56,80 +87,75 @@ func handle(conn net.Conn) {
 	<-T4             // 等待T3结束任务
 }
 
-type taskFun func()
-
-// task 任务整体的管理函数
-// f 代表实际的业务函数
-// 采用这种方式的一个最大的好处就是，业务代码完全独立出去
-// 不需要关心任务的调度，也不用关心任务的异常处理情况
-// task 这种编程方式，也给出了一个简单的模型：
-//      如果多个函数含有相同的入参，这些入参的功能是相同的，
-//      那么我们就可以使用这种函数模型进行统一的包装
-func task(f taskFun) <-chan struct{} {
-	done := make(chan struct{})
-
-	go func() {
-		defer func() { done <- struct{}{} }() // 任务完成
-		defer func() {                        // 异常处理
-			if err := recover(); err != nil {
-				// 记录异常日志
-				fmt.Println(err)
-			}
-		}()
-
-		f() // 执行具体的任务函数
-	}()
-
-	return done
-}
-
-// 实际任务函数，但是这里为了演示，直接使用了函数生成式，没有采用包装的形式
-func scanBuff(ch chan<- string) taskFun {
-	return func() {
-		// 读文件
-		// 读文件就有EOF标识符
-		var b string = "abcddd"
+// ScanBuff 从标准输入读入数据
+func ScanBuff(ch chan<- string) {
+	// 读文件
+	// 读文件就有EOF标识符
+	var b string = ""
+	for {
+		fmt.Scanln(&b)
 		fmt.Println(b)
 		ch <- b
 	}
 }
 
-func sendBuff(conn net.Conn, ch <-chan string) taskFun {
-	return func() {
-		for b := range ch {
-			var err error
-			writer := bufio.NewWriter(conn)
-			_, err = writer.WriteString(b)
-			if err != nil {
-				// 记录错误日志
-				panic("write error")
-			}
-
-			err = writer.Flush()
-			if err != nil {
-				// 记录错误日志
-				panic("write flush error")
-			}
-		}
-	}
-}
-
-func recieveBuff(conn net.Conn, ch chan<- string) taskFun {
-	return func() {
-		b, err := ioutil.ReadAll(conn)
+// SendBuff 向socket的发送缓冲区发送数据
+func SendBuff(conn net.Conn, ch <-chan string) {
+	for b := range ch {
+		var err error
+		writer := bufio.NewWriter(conn)
+		_, err = writer.WriteString(b)
 		if err != nil {
 			// 记录错误日志
-			panic("client recieve error")
+			panic("write error")
 		}
 
-		ch <- string(b)
+		err = writer.Flush()
+		if err != nil {
+			// 记录错误日志
+			panic("write flush error")
+		}
 	}
 }
 
-func printBuff(ch <-chan string) taskFun {
+// RecieveBuff 从socket的接收缓冲区接收数据
+func RecieveBuff(conn net.Conn, ch chan<- string) {
+	b, err := ioutil.ReadAll(conn)
+	if err != nil {
+		// 记录错误日志
+		panic("client recieve error")
+	}
+
+	ch <- string(b)
+}
+
+// PrintBuff 打印数据到标准输出
+func PrintBuff(ch <-chan string) {
+	for b := range ch {
+		fmt.Printf(b)
+	}
+}
+
+func taskScanBuff(ch chan<- string) func() {
 	return func() {
-		for b := range ch {
-			fmt.Printf(b)
-		}
+		ScanBuff(ch)
+	}
+}
+
+func taskSendBuff(conn net.Conn, ch <-chan string) func() {
+	return func() {
+		SendBuff(conn, ch)
+	}
+}
+
+func taskRecieveBuff(conn net.Conn, ch chan<- string) func() {
+	return func() {
+		RecieveBuff(conn, ch)
+	}
+}
+
+func taskPrintBuff(ch <-chan string) func() {
+	return func() {
+		PrintBuff(ch)
 	}
 }
