@@ -14,8 +14,21 @@ func task(f func(), rfs ...func()) <-chan struct{} {
 	d := make(chan struct{})
 	go func() {
 		defer func() { d <- struct{}{} }() // 退出信号
-		defer recover()                    // 捕获二次panic
-		defer func() {                     // 捕获任务panic
+		defer recover()                    // 捕获一切异常
+		ch := make(chan struct{})          // 后台任务退出信号
+		bgtask(f, ch, rfs...)              // 处理任务异常
+		<-ch
+	}()
+	return d
+}
+
+// 一系列同质的后台任务，也是一个脱离管理的异步任务，只能通过发送退出信号表示退出
+// ech 用来存储任务退出的信号
+func bgtask(f func(), ech chan<- struct{}, rfs ...func()) {
+	go func() {
+		defer func() { ech <- struct{}{} }() // 发送退出信号
+		defer recover()                      // 捕获二次panic
+		defer func() {                       // 捕获任务panic
 			if err := recover(); err != nil {
 				// 记录异常日志
 				fmt.Println(err)
@@ -28,7 +41,6 @@ func task(f func(), rfs ...func()) <-chan struct{} {
 
 		f()
 	}()
-	return d
 }
 
 func taskRWMain(ch <-chan int8) func() {
@@ -96,10 +108,7 @@ func taskGenerateReader(ch <-chan int8, rs chan<- struct{}) func() {
 func GenerateReader(ch <-chan int8, rs chan<- struct{}) {
 	for r := range ch {
 		fmt.Println("读者队列长度：", len(ch))
-		go func(r int8) { // 这种写法很危险！！！
-			<-task(taskReader(r))
-			rs <- struct{}{} // 通知读者退出了
-		}(r)
+		bgtask(taskReader(r), rs) // 启动一个后台读任务
 	}
 }
 
@@ -113,10 +122,8 @@ func taskGenerateWriter(ch <-chan int8, ws <-chan struct{}) func() {
 func GenerateWriter(ch <-chan int8, ws <-chan struct{}) {
 	for w := range ch {
 		fmt.Println("写者队列长度：", len(ch)+1)
-		go func(w int8) { // 这种写法非常的危险！！！
-			<-task(taskWriter(w))
-			<-ws // 通知写者退出了
-		}(w)
+		<-task(taskWriter(w)) // 启动一个同步写任务
+		<-ws                  // 释放写者锁
 	}
 }
 
@@ -153,8 +160,8 @@ func main() {
 
 	T := task(taskRWMain(ch), func() { close(ch) })
 
-	task := []int8{0}
-	// task := []int8{0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
+	// task := []int8{0}
+	task := []int8{0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
 	for _, v := range task {
 		ch <- v
 	}
