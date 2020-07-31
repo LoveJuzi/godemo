@@ -24,6 +24,6 @@ func main() {
 	person := &Person{Name: "周二"}
 	var a InterfaceA = person
 	a.A()
-	var b InterfaceB = a
-	b.B()
+	// var b InterfaceB = a  // 这条语句报错
+	// b.B()
 }
