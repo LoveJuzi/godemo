@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
 	"sync"
 	"time"
@@ -50,7 +51,7 @@ func bgtask(f func(), ech chan<- struct{}, rfs ...func()) {
 	}()
 }
 
-func task(f func(), rfs ...func()) <-chan struct{} {
+func synctask(f func(), rfs ...func()) <-chan struct{} {
 	d := make(chan struct{})
 	go func() {
 		defer recover()                    // 捕获一切异常
@@ -68,6 +69,30 @@ func taskRWMain(ch <-chan int8) func() {
 	}
 }
 
+func taskGenerateReader(ch <-chan int8, rs chan<- struct{}) func() {
+	return func() {
+		GenerateReader(ch, rs)
+	}
+}
+
+func taskGenerateWriter(ch <-chan int8, ws <-chan struct{}) func() {
+	return func() {
+		GenerateWriter(ch, ws)
+	}
+}
+
+func taskReader(r int8) func() {
+	return func() {
+		Reader(r)
+	}
+}
+
+func taskWriter(w int8) func() {
+	return func() {
+		Writer(w)
+	}
+}
+
 // SIZE 队列大小
 const SIZE = 1 << 10
 
@@ -75,29 +100,30 @@ const SIZE = 1 << 10
 // rs 管道看似多余，其实，这是一种通信管理方式
 // 通过这种方式，我们将计数的操作都限定在主管理函数
 func RWMain(ch <-chan int8) {
-	rch := make(chan int8, SIZE)     // 读者队列
-	wch := make(chan int8, SIZE)     // 写者队列
-	ws := make(chan struct{}, 1)     // 写程序排斥
-	rs := make(chan struct{}, 1<<31) // 读者完成队列
-	wg := &sync.WaitGroup{}          // 正在读的读者计数器
+	rch := make(chan int8, SIZE)              // 读者队列
+	wch := make(chan int8, SIZE)              // 写者队列
+	ws := make(chan struct{}, 1)              // 写程序排斥锁
+	rs := make(chan struct{}, math.MaxUint32) // 读者退出信号队列
+	wg := &sync.WaitGroup{}                   // 正在执行读任务的读者计数器
 
-	task(func() { // 读者读取完毕，需要通知计数减少
-		for range rs {
+	// 这个其实是一个后台任务，但是我们并不关心它的退出信号，使用同步任务模拟了一下
+	synctask(func() {
+		for range rs { // 读者读任务完毕
 			wg.Done()
 		}
 	})
-	defer close(rs) // 结束上面的task，防止goroutine资源不被释放
+	defer close(rs) // 结束上面的任务，防止goroutine资源不被释放
 
-	waitAllReaderExit := func() {
+	waitAllReaderExit := func() { // 检查是否有读者
 		wg.Wait()
 	}
-	waitWriterExit := func() {
-		ws <- struct{}{} // 检查是否有写者
+	waitWriterExit := func() { // 检查是否有写者
+		ws <- struct{}{}
 		<-ws
 	}
 
-	T1 := task(taskGenerateReader(rch, rs), func() { close(rch) }, func() { close(rs) })
-	T2 := task(taskGenerateWriter(wch, ws), func() { close(wch) }, func() { close(ws) })
+	T1 := synctask(taskGenerateReader(rch, rs), func() { close(rch) }, func() { close(rs) })
+	T2 := synctask(taskGenerateWriter(wch, ws), func() { close(wch) }, func() { close(ws) })
 
 	for rw := range ch { // 分发任务
 		waitWriterExit()
@@ -114,16 +140,11 @@ func RWMain(ch <-chan int8) {
 	waitAllReaderExit()
 	waitWriterExit()
 
-	close(rch)
-	close(wch)
-	<-T1
-	<-T2
-}
-
-func taskGenerateReader(ch <-chan int8, rs chan<- struct{}) func() {
-	return func() {
-		GenerateReader(ch, rs)
-	}
+	// 同步任务控制流
+	close(rch) // 通知T1任务结束
+	close(wch) // 通知T2任务结束
+	<-T1       // 等待T1任务结束
+	<-T2       // 等待T2任务结束
 }
 
 // GenerateReader 生成读者
@@ -134,30 +155,12 @@ func GenerateReader(ch <-chan int8, rs chan<- struct{}) {
 	}
 }
 
-func taskGenerateWriter(ch <-chan int8, ws <-chan struct{}) func() {
-	return func() {
-		GenerateWriter(ch, ws)
-	}
-}
-
 // GenerateWriter 生成写者
 func GenerateWriter(ch <-chan int8, ws <-chan struct{}) {
 	for w := range ch {
 		fmt.Println("写者队列长度：", len(ch)+1)
-		<-task(taskWriter(w)) // 启动一个同步写任务
-		<-ws                  // 释放写者锁
-	}
-}
-
-func taskReader(r int8) func() {
-	return func() {
-		Reader(r)
-	}
-}
-
-func taskWriter(w int8) func() {
-	return func() {
-		Writer(w)
+		<-synctask(taskWriter(w)) // 启动一个同步写任务
+		<-ws                      // 释放写者锁
 	}
 }
 
@@ -180,7 +183,7 @@ func Writer(w int8) {
 func main() {
 	ch := make(chan int8, SIZE) // 读写主程序的接收队列
 
-	T := task(taskRWMain(ch), func() { close(ch) })
+	T := synctask(taskRWMain(ch), func() { close(ch) })
 
 	task := []int8{0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
 	for _, v := range task {
