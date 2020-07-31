@@ -111,7 +111,7 @@ func RWMain(ch <-chan int8) {
 		for range rs { // 读者读任务完毕
 			wg.Done()
 		}
-	})
+	}, func() { close(rs) })
 	defer close(rs) // 结束上面的任务，防止goroutine资源不被释放
 
 	waitAllReaderExit := func() { // 检查是否有读者

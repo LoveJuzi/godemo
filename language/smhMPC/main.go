@@ -2,6 +2,9 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
+	"strconv"
+	"time"
 )
 
 func bgtask(f func(), ech chan<- struct{}, rfs ...func()) {
@@ -35,36 +38,10 @@ func synctask(f func(), rfs ...func()) <-chan struct{} {
 	return d
 }
 
-func main() {
-	<-synctask(taskMPCMain(3, 10))
-}
-
-// SIZE 生产者消费者通道的大小
-const SIZE int = 1 << 1
-
 func taskMPCMain(m, n int) func() {
 	return func() {
-		MPCMain2(m, n)
+		MPCMain(m, n)
 	}
-}
-
-// MPCMain2 主程序
-func MPCMain2(m, n int) {
-	ch1 := make(chan string, SIZE)
-	ch := make(chan string, SIZE)
-
-	T1 := synctask(taskProducerFactory(ch1, ch, m), func() { close(ch1) }, func() { close(ch) })
-	T2 := synctask(taskConsumerFactory(ch, n), func() { close(ch) })
-
-	for i := 0; i < 1000; i++ { // 任务分发
-		ch1 <- "aaa"
-	}
-	close(ch1)
-
-	// 任务控制流
-	<-T1      // 等待T1任务结束
-	close(ch) // 通知T2任务结束
-	<-T2      // 等待T2任务结束
 }
 
 func taskProducerFactory(ch1 <-chan string, ch chan<- string, m int) func() {
@@ -73,30 +50,10 @@ func taskProducerFactory(ch1 <-chan string, ch chan<- string, m int) func() {
 	}
 }
 
-// ProducerFactory 用来启动生产者
-func ProducerFactory(ch1 <-chan string, ch chan<- string, m int) {
-	mch := make(chan struct{}, m) // 生产者个数
-	for i := 0; i < m; i++ {
-		mch <- struct{}{}
-	}
-	for v := range ch1 {
-		if _, ok := <-mch; !ok {
-			break
-		}
-		bgtask(taskProducer2(v, ch), mch, func() { close(ch) })
-	}
-}
-
-func taskProducer2(src string, ch chan<- string) func() {
+func taskProducerMachine(ch1 <-chan string, ch chan<- string) func() {
 	return func() {
-		ch <- Producer2(src)
+		ProducerMachine(ch1, ch)
 	}
-}
-
-// Producer2 生产者加工
-func Producer2(src string) (dst string) {
-	dst = src + "HHHHHHHH"
-	return
 }
 
 func taskConsumerFactory(ch <-chan string, n int) func() {
@@ -105,27 +62,97 @@ func taskConsumerFactory(ch <-chan string, n int) func() {
 	}
 }
 
+func taskConsumerMachine(ch <-chan string) func() {
+	return func() {
+		ConsumerMachine(ch)
+	}
+}
+
+// SIZE 生产者消费者通道的大小
+const SIZE int = 1 << 10
+
+// MPCMain 主程序
+func MPCMain(m, n int) {
+	ch1 := make(chan string, SIZE)
+	ch := make(chan string, SIZE)
+
+	// 异常恢复代码，先下游后上游
+	T1 := synctask(taskProducerFactory(ch1, ch, m), func() { close(ch) }, func() { close(ch1) })
+	T2 := synctask(taskConsumerFactory(ch, n), func() { close(ch) })
+
+	for i := 0; i < 100000; i++ { // 分发任务
+		ch1 <- strconv.Itoa(i)
+	}
+
+	// 任务控制流
+	close(ch1) // 通知T1任务结束
+	<-T1       // 等待T1任务结束
+	close(ch)  // 通知T2任务结束
+	<-T2       // 等待T2任务结束
+}
+
+// ProducerFactory 用来启动生产者
+func ProducerFactory(ch1 <-chan string, ch chan<- string, m int) {
+	ch2 := make(chan string, m)
+	T := make([]<-chan struct{}, m)
+	for i := range T {
+		T[i] = synctask(taskProducerMachine(ch2, ch), func() { close(ch) }, func() { close(ch2) })
+	}
+	for v := range ch1 { // 需要传递一下，因为close无法处理<-chan
+		ch2 <- v
+	}
+
+	// 任务控制流
+	close(ch2)         // 通知T任务结束
+	for i := range T { // 等待T任务结束
+		<-T[i]
+	}
+}
+
+// ProducerMachine 每个Machine都会处理一次请求
+func ProducerMachine(ch1 <-chan string, ch chan<- string) {
+	for v := range ch1 {
+		ch <- Producer(v)
+	}
+}
+
 // ConsumerFactory 用来启动消费者
 func ConsumerFactory(ch <-chan string, n int) {
-	nch := make(chan struct{}, n)
-	for i := 0; i < n; i++ {
-		nch <- struct{}{}
+	ch2 := make(chan string, n)
+	T := make([]<-chan struct{}, n)
+	for i := range T {
+		T[i] = synctask(taskConsumerMachine(ch2), func() { close(ch2) })
 	}
+	for v := range ch { // 需要传递一下，因为close无法处理<-chan
+		ch2 <- v
+	}
+
+	// 任务控制流
+	close(ch2)         // 通知T任务结束
+	for i := range T { // 等待T任务结束
+		<-T[i]
+	}
+}
+
+// ConsumerMachine 每个Machine都会处理一次请求
+func ConsumerMachine(ch <-chan string) {
 	for v := range ch {
-		if _, ok := <-nch; !ok {
-			break
-		}
-		bgtask(taskConsumer2(v), nch)
+		Consumer(v)
 	}
 }
 
-func taskConsumer2(s string) func() {
-	return func() {
-		Consumer2(s)
-	}
+// Producer 生产者加工
+func Producer(src string) (dst string) {
+	dst = src + "HHHHHHHH"
+	return
 }
 
-// Consumer2 消费者消费
-func Consumer2(s string) {
+// Consumer 消费者消费
+func Consumer(s string) {
 	fmt.Println(s)
+	time.Sleep(time.Second * time.Duration(rand.Intn(5)+1))
+}
+
+func main() {
+	<-synctask(taskMPCMain(3, 10))
 }
