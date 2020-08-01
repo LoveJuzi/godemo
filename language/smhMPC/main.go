@@ -9,7 +9,7 @@ import (
 
 func bgtask(f func(), ech chan<- struct{}, rfs ...func()) {
 	go func() {
-		defer recover()                      // 捕获一切异常
+		defer func() { recover() }()         // 捕获一切异常
 		defer func() { ech <- struct{}{} }() // 发送退出信号
 		defer func() {                       // 捕获任务panic
 			if err := recover(); err != nil {

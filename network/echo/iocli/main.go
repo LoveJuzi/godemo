@@ -14,7 +14,7 @@ func main() {
 
 func bgtask(f func(), ech chan<- struct{}, rfs ...func()) {
 	go func() {
-		defer recover()                      // 捕获一切异常
+		defer func() { recover() }()         // 捕获一切异常
 		defer func() { ech <- struct{}{} }() // 发送退出信号
 		defer func() {                       // 捕获任务panic
 			if err := recover(); err != nil {
@@ -34,13 +34,37 @@ func bgtask(f func(), ech chan<- struct{}, rfs ...func()) {
 func synctask(f func(), rfs ...func()) <-chan struct{} {
 	d := make(chan struct{})
 	go func() {
-		defer recover()                    // 捕获一切异常
+		defer func() { recover() }()       // 捕获一切异常
 		defer func() { d <- struct{}{} }() // 发送退出信号
 		ch := make(chan struct{})          // 后台任务退出信号
 		bgtask(f, ch, rfs...)              // 后台处理任务
 		<-ch                               // 等待后台任务结束
 	}()
 	return d
+}
+
+func taskScanBuff(ch chan<- string) func() {
+	return func() {
+		ScanBuff(ch)
+	}
+}
+
+func taskSendBuff(conn net.Conn, ch <-chan string) func() {
+	return func() {
+		SendBuff(conn, ch)
+	}
+}
+
+func taskRecieveBuff(conn net.Conn, ch chan<- string) func() {
+	return func() {
+		RecieveBuff(conn, ch)
+	}
+}
+
+func taskPrintBuff(ch <-chan string) func() {
+	return func() {
+		PrintBuff(ch)
+	}
 }
 
 func client() {
@@ -138,29 +162,5 @@ func PrintBuff(ch <-chan string) {
 	for b := range ch {
 		fmt.Printf(b)
 		fmt.Println("")
-	}
-}
-
-func taskScanBuff(ch chan<- string) func() {
-	return func() {
-		ScanBuff(ch)
-	}
-}
-
-func taskSendBuff(conn net.Conn, ch <-chan string) func() {
-	return func() {
-		SendBuff(conn, ch)
-	}
-}
-
-func taskRecieveBuff(conn net.Conn, ch chan<- string) func() {
-	return func() {
-		RecieveBuff(conn, ch)
-	}
-}
-
-func taskPrintBuff(ch <-chan string) func() {
-	return func() {
-		PrintBuff(ch)
 	}
 }

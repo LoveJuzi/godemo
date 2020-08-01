@@ -42,6 +42,30 @@ func synctask(f func(), rfs ...func()) <-chan struct{} {
 	return d
 }
 
+func taskHandle(conn net.Conn) func() {
+	return func() {
+		Handle(conn)
+	}
+}
+
+func taskRecieveBuff(conn net.Conn, sktSendCh chan string, sdOutCh chan string) func() {
+	return func() {
+		RecieveBuff(conn, sktSendCh, sdOutCh)
+	}
+}
+
+func taskSendBuff(conn net.Conn, sktSendCh chan string) func() {
+	return func() {
+		SendBuff(conn, sktSendCh)
+	}
+}
+
+func taskPrintBuff(ch <-chan string) func() {
+	return func() {
+		PrintBuff(ch)
+	}
+}
+
 func serve() {
 	// 申请IP地址空间 绑定端口
 	tcpServer, err := net.ResolveTCPAddr("tcp4", ":8080")
@@ -71,9 +95,6 @@ func serve() {
 	}
 }
 
-// CHEOF 通道结束符
-var CHEOF = string([]byte{0x01})
-
 // Handle 各种资源的管理都在handle中处理
 func Handle(conn net.Conn) {
 	defer func() { conn.Close() }() // 服务端关闭连接
@@ -90,12 +111,6 @@ func Handle(conn net.Conn) {
 	close(ch2) // 通知T3任务结束
 	<-T2       // 等待T2任务结束
 	<-T3       // 等待T3任务结束
-}
-
-func taskHandle(conn net.Conn) func() {
-	return func() {
-		Handle(conn)
-	}
 }
 
 // RecieveBuff 从socket的接收缓冲区读取数据
@@ -116,12 +131,6 @@ func RecieveBuff(conn net.Conn, ch1 chan string, ch2 chan string) {
 	}
 }
 
-func taskRecieveBuff(conn net.Conn, sktSendCh chan string, sdOutCh chan string) func() {
-	return func() {
-		RecieveBuff(conn, sktSendCh, sdOutCh)
-	}
-}
-
 // SendBuff 向socket的发送缓冲区发送数据
 func SendBuff(conn net.Conn, ch <-chan string) {
 	for v := range ch {
@@ -133,21 +142,9 @@ func SendBuff(conn net.Conn, ch <-chan string) {
 	}
 }
 
-func taskSendBuff(conn net.Conn, sktSendCh chan string) func() {
-	return func() {
-		SendBuff(conn, sktSendCh)
-	}
-}
-
 // PrintBuff 标准输出输出内容
 func PrintBuff(ch <-chan string) {
 	for v := range ch {
 		fmt.Println(v)
-	}
-}
-
-func taskPrintBuff(ch <-chan string) func() {
-	return func() {
-		PrintBuff(ch)
 	}
 }
