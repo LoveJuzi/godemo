@@ -65,24 +65,23 @@ func client() {
 func handle(conn net.Conn) {
 	// 通信channel
 	sktSendCh := make(chan string, 1)
-	sdOutCh := make(chan string, 1)
+	stdOutCh := make(chan string, 1)
 
 	// 任务分发
 	// 针对不同的任务类型，我们仅仅需要重新编写不同的任务模板，也就是task的实现方式
 	// golang语言使用这种方式，可以很好的进行任务并发
-	T1 := synctask(taskScanBuff(sktSendCh), func() { close(sktSendCh) })
+	synctask(taskScanBuff(sktSendCh), func() { close(sktSendCh) })
 	T2 := synctask(taskSendBuff(conn, sktSendCh), func() { close(sktSendCh) })
-	T3 := synctask(taskRecieveBuff(conn, sdOutCh), func() { close(sdOutCh) })
-	T4 := synctask(taskPrintBuff(sdOutCh), func() { close(sdOutCh) })
+	T3 := synctask(taskRecieveBuff(conn, stdOutCh), func() { close(stdOutCh) })
+	T4 := synctask(taskPrintBuff(stdOutCh), func() { close(stdOutCh) })
 
 	// 任务执行顺序控制流
 	// 任务控制流最好在主程中进行描述，这样便于后期维护
 	// 当然，为了优雅，也可以写到具体的任务中，但是这样会导致一个问题
 	// 当任务流变的复杂的时候，具体任务的控制流就变得复杂，不利于维护
-	<-T1             // 等待T1任务结束
-	close(sktSendCh) // 通知T2结束任务
 	<-T3             // 等待T3任务结束
-	close(sdOutCh)   // 通知T4结束任务
+	close(sktSendCh) // 通知T2结束任务
+	close(stdOutCh)  // 通知T4结束任务
 	<-T2             // 等待T2结束任务
 	<-T4             // 等待T3结束任务
 }
@@ -93,8 +92,7 @@ func ScanBuff(ch chan<- string) {
 	// 读文件就有EOF标识符
 	var b string = ""
 	for {
-		fmt.Scanln(&b)
-		fmt.Println(b)
+		fmt.Scanf("%s", &b)
 		ch <- b
 	}
 }
@@ -139,6 +137,7 @@ func RecieveBuff(conn net.Conn, ch chan<- string) {
 func PrintBuff(ch <-chan string) {
 	for b := range ch {
 		fmt.Printf(b)
+		fmt.Println("")
 	}
 }
 

@@ -130,7 +130,6 @@ func SendBuff(conn net.Conn, ch <-chan string) {
 			// 记录错误日志
 			break
 		}
-		fmt.Println(v)
 	}
 }
 
@@ -143,7 +142,7 @@ func taskSendBuff(conn net.Conn, sktSendCh chan string) func() {
 // PrintBuff 标准输出输出内容
 func PrintBuff(ch <-chan string) {
 	for v := range ch {
-		fmt.Print(v)
+		fmt.Println(v)
 	}
 }
 
