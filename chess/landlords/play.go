@@ -36,7 +36,8 @@ func Play() {
 	ch3s := make(chan Stauts, 1)
 	ch3r := make(chan Stauts, 1)
 
-	ch := make(chan int, 1)	task.SyncTask(taskScanf(ch), func() { close(ch) })
+	ch := make(chan int, 1)
+	task.SyncTask(taskScanf(ch), func() { close(ch) })
 	defer func() { close(ch) }()
 
 	T1 := task.SyncTask(taskNextCards(ch1r, ch1s, 0, ch))
