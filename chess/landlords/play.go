@@ -25,8 +25,22 @@ func nextid(id int) int {
 	return (id + 1) % PLAYERSNUM
 }
 
+// NewGame 初始化一个新的游戏
+func NewGame() Stauts {
+	return Stauts{
+		Plcrds: [PLAYERSNUM][]string{
+			{"1", "2", "3"},
+			{"4", "5", "6"},
+			{"7", "8", "9"},
+		},
+		Plts:  [PLAYERSNUM]PLTYPE{0, 0, 1},
+		Cards: []string{},
+		Win:   [PLAYERSNUM]bool{false, false, false},
+	}
+}
+
 // Play 斗地主主程序
-func Play() {
+func Play(st Stauts) Stauts {
 	ch1s := make(chan Stauts, 1)
 	ch1r := make(chan Stauts, 1)
 
@@ -44,24 +58,13 @@ func Play() {
 	T2 := task.SyncTask(taskNextCards(ch2r, ch2s, 1, ch))
 	T3 := task.SyncTask(taskNextCards(ch3r, ch3s, 2, ch))
 
-	// 初始化游戏
-	st := Stauts{
-		Plcrds: [PLAYERSNUM][]string{
-			{"1", "2", "3"},
-			{"4", "5", "6"},
-			{"7", "8", "9"},
-		},
-		Plts:  [PLAYERSNUM]PLTYPE{0, 0, 1},
-		Cards: []string{},
-		Win:   [PLAYERSNUM]bool{false, false, false},
-	}
-
 	for {
 		// 给玩家发送当前牌的信息
 		ch1r <- st
 		ch2r <- st
 		ch3r <- st
 
+		// 接收玩家出牌
 		var id int
 		select {
 		case st = <-ch1s:
@@ -72,12 +75,18 @@ func Play() {
 			id = 2
 		}
 
-		// 判定输赢
+		// 判定玩家输赢
 		if len(st.Plcrds[id]) == 0 {
+			plt := st.Plts[id]
+			for i := 0; i < PLAYERSNUM; i++ {
+				if st.Plts[id] == plt {
+					st.Win[id] = true
+				}
+			}
 			break
 		}
 
-		// 更新出牌玩家
+		// 更新下一个出牌的玩家
 		st.ID = nextid(st.ID)
 	}
 
@@ -88,6 +97,8 @@ func Play() {
 	<-T1
 	<-T2
 	<-T3
+
+	return st
 }
 
 func taskNextCards(chr <-chan Stauts, chs chan<- Stauts, id int, ch <-chan int) func() {
@@ -120,7 +131,8 @@ func Scanf(ch chan<- int) {
 func NextCards(id int, st Stauts, ch <-chan int) Stauts {
 	// 输出当前选手的手牌
 	fmt.Printf("当前的选手号：%d, 手牌：%v\n", id, st.Plcrds[id])
-	fmt.Sprintln(st)
+	// ch2 chan<- string
+	// ch2 <- 输出信息
 
 	if id != st.ID {
 		return st
@@ -128,36 +140,40 @@ func NextCards(id int, st Stauts, ch <-chan int) Stauts {
 
 	// 决定出什么牌
 	midx := len(st.Plcrds[id])
-	// 有效输入
-	ch1 := make(chan int, 1)
-	done := make(chan struct{}, 1)
+	ch1 := make(chan int, 1)       // 接收异步输入值
+	done := make(chan struct{}, 1) // 超时通知信号
+	// 异步有效输入
 	task.SyncTask(func() {
 		var idx int
 		for {
+			fmt.Printf("选手号：%d，输入范围0-%d\n", id, midx-1)
+			// ch2 chan<- string
+			// ch2 <- 输入提示信息
 			select {
 			case idx = <-ch:
-				// 还要判定输入是否有效
 				if idx >= -1 && idx < midx {
+					// 还要判定输入是否有效
+					fmt.Println(idx)
 					ch1 <- idx
-					break
+					goto DONE
 				}
 			case <-done:
-				break
+				goto DONE
 			}
 		}
+	DONE:
 	})
 	// 超时输入
 	var idx int
-	fmt.Printf("选手号：%d，输入范围0-%d\n", id, midx-1)
 	select {
 	case <-time.After(time.Second * 5):
 		fmt.Println("超时")
-		done <- struct{}{}
+		done <- struct{}{} // 停止异步输入
 		idx = -1
 	case idx = <-ch1:
 	}
-
-	fmt.Println(idx)
+	close(ch1)
+	close(done)
 
 	if idx >= 0 && idx < midx {
 		// 保存出的牌

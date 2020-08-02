@@ -3,5 +3,5 @@ package main
 import "godemo/chess/landlords"
 
 func main() {
-	landlords.Play()
+	landlords.Play(landlords.NewGame())
 }
