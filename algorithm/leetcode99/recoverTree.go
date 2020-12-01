@@ -9,6 +9,7 @@ package leetcode99
  * }
  */
 
+// TreeNode 结点
 type TreeNode struct {
 	Val   int
 	Left  *TreeNode
