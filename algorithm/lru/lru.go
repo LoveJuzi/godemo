@@ -10,7 +10,7 @@ package lru
         a. 如果元素不在缓存列表中，那么将该元素提升到列表的头部
         b. 如果元素不在缓存列表中，且有足够空间，那么将元素直接插入到列表头部
         c. 如果空间不足，首先淘汰列表尾部元素，然后重新添加元素
-    3. 还需要提供一个根据key查询数据的接口
+    3. 还需要提供一个根据key查询数据的接口，每查询一次，就需要更新淘汰优先级
 */
 
 type data interface{}
@@ -61,6 +61,9 @@ func (c *LRUCache) AddElement(k key, v data) {
 		c.addNewKey(k, v)
 	}
 
+	// 更新key对应的数据
+	c.ht1[k] = v
+
 	// 更新元素的淘汰优先级
 	c.updateKey(k)
 }
@@ -68,6 +71,8 @@ func (c *LRUCache) AddElement(k key, v data) {
 // GetElement 查找元素
 func (c *LRUCache) GetElement(k key) (data, bool) {
 	if c.hasKey(k) {
+		// 更新元素的淘汰优先级
+		c.updateKey(k)
 		return c.ht1[k], true
 	}
 	return nil, false
