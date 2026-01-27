@@ -1,5 +1,30 @@
+<!DOCTYPE html>
 <html>
 
-<h1>这是一个标题</h1>
+<head>
+    <title>Cards Example</title>
+</head>
+
+<body>
+    <h1>我的卡片列表2</h1>
+
+    <br />
+
+    <p> {{ .title }} </p>
+    <p> adfsdf </p>
+
+    <ul>
+        {{range .data}}
+        <li>
+            <h2>{{ .Title }}</h2>
+            <p>{{.Content}}</p>
+            <p>Date: {{.Date}}</p>
+            <p>Tags: {{range .Tags}}{{.}} {{end}}</p>
+        </li>
+        {{else}}
+        <li>No cards found.</li>
+        {{end}}
+    </ul>
+</body>
 
 </html>
