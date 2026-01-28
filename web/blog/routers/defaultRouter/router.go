@@ -13,29 +13,10 @@ func Init(r *gin.Engine) {
 }
 
 func indexHandler(c *gin.Context) {
-	// 创建一些示例数据
-	// cards := Cards{
-	// 	Cards: []Card{
-	// 		{
-	// 			Title:   "Card 1",
-	// 			Content: "This is card 1",
-	// 			Date:    "2026-01-25",
-	// 			Tags:    []string{"go", "gin"},
-	// 		},
-	// 		{
-	// 			Title:   "Card 2",
-	// 			Content: "This is card 2",
-	// 			Date:    "2026-01-24",
-	// 			Tags:    []string{"html", "template"},
-	// 		},
-	// 	},
-	// }
+	title := defaultController.GetIndexTilte()
+	cards := defaultController.GetCards()
 	c.HTML(http.StatusOK, "index.html", gin.H{
-		"title": "Main website5",
-		"data": defaultController.GetCards().Cards,
+		"title": title,
+		"data":  cards.Cards,
 	})
-	// c.HTML(http.StatusOK, "index.html", gin.H{
-	// 	// "data": cards.Cards,
-	// 	"test": "abcd",
-	// })
 }
