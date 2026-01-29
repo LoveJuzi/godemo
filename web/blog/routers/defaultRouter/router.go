@@ -17,6 +17,6 @@ func indexHandler(c *gin.Context) {
 	cards := defaultController.GetCards()
 	c.HTML(http.StatusOK, "index.html", gin.H{
 		"title": title,
-		"data":  cards.Cards,
+		"cards": cards,
 	})
 }
