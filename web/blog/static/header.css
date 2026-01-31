@@ -1,0 +1,25 @@
+.header {
+    display: flex;
+    justify-content: space-between;
+    height: 64px;
+    border-bottom: 1px solid #ccc;
+    position: sticky;
+    top: 0;
+}
+
+.header .left {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 200px;
+    margin-left: 20px;
+}
+
+.header .right {
+    display: flex;
+    width: 150px;
+    justify-content: space-between;
+    align-items: center;
+    margin-right: 20px;
+}
+
