@@ -9,6 +9,8 @@ import (
 func main() {
 	engine := gin.Default()
 
+	engine.Static("/static", "./static")
+
 	engine.LoadHTMLGlob("templates/*")
 
 	defaultRouter.Init(engine)

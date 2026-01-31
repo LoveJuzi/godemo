@@ -9,3 +9,13 @@
 另一个动机是，golang这门语言我是真的喜欢，简单又粗暴，基于函数的一套开发是非常对我的胃口的。我喜欢它，所以我愿意花时间用折腾他。
 
 
+## 安装 tailwind.css
+
+```sh
+
+ npm install tailwindcss @tailwindcss/cli
+ touch static/input.css
+ echo '@import "tailwindcss";' > static/tailwind_input.css
+ npx @tailwindcss/cli -i ./static/tailwind_input.css -o ./static/tailwind.css --watch --minify
+
+```
