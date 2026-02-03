@@ -6,22 +6,140 @@
     <title>当然我在扯淡</title>
     <link href="/static/style.css" rel="stylesheet" />
     <link href="/static/tailwind.css" rel="stylesheet" />
-    <link href="/static/header.css" rel="stylesheet" />
+    <!-- <link href="/static/header.css" rel="stylesheet" /> -->
     <link href="/static/footer.css" rel="stylesheet" />
     <style>
+      .header {
+        display: flex;
+        justify-content: space-between;
+        height: 64px;
+        border-bottom: 1px solid #ccc;
+        position: sticky;
+        top: 0;
+        padding: 0rem 0.75rem;
+      }
+
+      .header .left {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 13rem;
+      }
+
+      .header .right {
+        display: flex;
+        width: 150px;
+        justify-content: space-between;
+        align-items: center;
+      }
+
       .container {
         display: grid;
         grid-template-rows: auto 1fr auto; /* header 高度自适应，content 占剩余空间，footer 高度自适应 */
         min-height: 100vh; /* 整个页面撑满屏幕 */
       }
+      .content {
+        display: flex;
+        flex-direction: column;
+        width: 72rem;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+      }
+      .content .title {
+        padding-bottom: 2rem;
+
+        font-size: 2.25rem;
+        font-weight: 700;
+        line-height: 2.5rem;
+        color: #1f2937;
+      }
+      .content .main {
+        display: grid;
+        grid-template-columns: 1fr 320px;
+      }
+      .content .main .cards {
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+      }
+      .content .main .cards .card {
+        display: flex;
+        flex-direction: column;
+        padding: 1.5rem;
+        border: 0.0625rem solid #ccc;
+        border-radius: 1rem;
+      }
+      .content .main .cards .card .card_title {
+        margin-bottom: 0.75rem;
+
+        font-size: 1.5rem;
+        font-weight: 700;
+      }
+      .content .main .cards .card .card_content {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 3; /* 显示 3 行 */
+        overflow: hidden;
+        margin-bottom: 1rem;
+
+        line-height: 1.625;
+        font-size: 1rem;
+        color: #4b5563;
+      }
+      .content .main .cards .card .date_and_tags {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-top: 1rem;
+
+        border-top-width: 0.0625rem;
+        border-color: #f7f0df;
+      }
+      .content .main .cards .card .date_and_tags .date {
+        font-size: 0.875rem;
+        color: #6b7280;
+      }
+      .content .main .cards .card .date_and_tags .tags {
+        display: flex;
+        gap: 0.5rem;
+      }
+      .content .main .cards .card .date_and_tags .tags .tag {
+        padding: 0.25rem 0.75rem;
+        border-radius: 100rem;
+
+        color: #6f4620;
+        background-color: #f7f0df;
+        font-size: 0.875rem;
+      }
+      .ellipsis-3 {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 3; /* 显示 3 行 */
+        overflow: hidden;
+      }
+      @media (max-width: 70rem) {
+        .content {
+          display: flex;
+          width: 100%;
+        }
+      }
+      @media (max-width: 880px) {
+        .content .main .tags {
+          display: none;
+        }
+      }
     </style>
   </head>
 
   <body class="container">
-    <div class="header">
+    <div class="header bg-white">
       <div class="left">
-        <div style="font-size: 23px">当然我在扯淡</div>
-        <div style="color: #bd8e5d">首页</div>
+        <div style="font-size: 1.5rem; color: #111827; font-weight: 700">
+          当然我在扯淡
+        </div>
+        <div style="color: #bd8e5d; font-size: 1rem; font-weight: 500">
+          首页
+        </div>
       </div>
       <div class="right">
         <div>语言</div>
@@ -30,7 +148,70 @@
       </div>
     </div>
     <div class="content">
-      <h1>博客文章</h1>
+      <div class="title">博客文章</div>
+      <div class="main">
+        <div class="cards">
+          <div class="card">
+            <div class="card_title">计算机科学视频班课程介绍</div>
+            <div class="card_content">
+              计算机科学视频班是一门注重深度理解的计算机科学课程。这门课程传授的不仅是编程技术，更重要的是计算机科学的核心思想。它的目标是培养具有系统的思维能力的计算机科学家和系统架构师。
+              课程内容经过了精心设计，充满乐趣，值得反复琢磨。从最基本的概念开始逐渐深入，避免冗余和阻碍理解的成分，顺利达到深刻的概念层次，所以无论是零基础还是有大量经验的人员都能从中获益。课程采用独特的授课方式，强调对核心概念的深入理
+            </div>
+            <div class="date_and_tags">
+              <div class="date">2025年5月12日</div>
+              <div class="tags">
+                <div class="tag">education</div>
+                <div class="tag">education</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card_title">计算机科学视频班课程介绍</div>
+            <div class="card_content">
+              计算机科学视频班是一门注重深度理解的计算机科学课程。这门课程传授的不仅是编程技术，更重要的是计算机科学的核心思想。它的目标是培养具有系统的思维能力的计算机科学家和系统架构师。
+              课程内容经过了精心设计，充满乐趣，值得反复琢磨。从最基本的概念开始逐渐深入，避免冗余和阻碍理解的成分，顺利达到深刻的概念层次，所以无论是零基础还是有大量经验的人员都能从中获益。课程采用独特的授课方式，强调对核心概念的深入理
+            </div>
+            <div class="date_and_tags">
+              <div class="date">2025年5月12日</div>
+              <div class="tags">
+                <div class="tag">education</div>
+                <div class="tag">education</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card_title">计算机科学视频班课程介绍</div>
+            <div class="card_content">
+              计算机科学视频班是一门注重深度理解的计算机科学课程。这门课程传授的不仅是编程技术，更重要的是计算机科学的核心思想。它的目标是培养具有系统的思维能力的计算机科学家和系统架构师。
+              课程内容经过了精心设计，充满乐趣，值得反复琢磨。从最基本的概念开始逐渐深入，避免冗余和阻碍理解的成分，顺利达到深刻的概念层次，所以无论是零基础还是有大量经验的人员都能从中获益。课程采用独特的授课方式，强调对核心概念的深入理
+            </div>
+            <div class="date_and_tags">
+              <div class="date">2025年5月12日</div>
+              <div class="tags">
+                <div class="tag">education</div>
+                <div class="tag">education</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card_title">计算机科学视频班课程介绍</div>
+            <div class="card_content">
+              计算机科学视频班是一门注重深度理解的计算机科学课程。这门课程传授的不仅是编程技术，更重要的是计算机科学的核心思想。它的目标是培养具有系统的思维能力的计算机科学家和系统架构师。
+              课程内容经过了精心设计，充满乐趣，值得反复琢磨。从最基本的概念开始逐渐深入，避免冗余和阻碍理解的成分，顺利达到深刻的概念层次，所以无论是零基础还是有大量经验的人员都能从中获益。课程采用独特的授课方式，强调对核心概念的深入理
+            </div>
+            <div class="date_and_tags">
+              <div class="date">2025年5月12日</div>
+              <div class="tags">
+                <div class="tag">education</div>
+                <div class="tag">education</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="footer">
       <div>© 2026 Yin Wang. All rights reserved.</div>

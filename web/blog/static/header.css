@@ -5,6 +5,7 @@
   border-bottom: 1px solid #ccc;
   position: sticky;
   top: 0;
+  padding: 0rem 0.75rem;
 }
 
 .header .left {
@@ -12,7 +13,6 @@
   align-items: center;
   justify-content: space-between;
   width: 200px;
-  margin-left: 20px;
 }
 
 .header .right {
@@ -20,5 +20,4 @@
   width: 150px;
   justify-content: space-between;
   align-items: center;
-  margin-right: 20px;
 }
