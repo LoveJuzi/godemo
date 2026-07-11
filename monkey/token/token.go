@@ -1,10 +1,11 @@
 package token
 
-type TokenType string
+func New(tokenType TokenType, literal string) Token {
+	return Token{Type: tokenType, Literal: literal}
+}
 
-type Token struct {
-	Type    TokenType
-	Literal string
+func NewIdent(literal string) Token {
+	return Token{Type: lookupIdent(literal), Literal: literal}
 }
 
 const (
@@ -16,8 +17,17 @@ const (
 	INT   = "INT"
 
 	// 运算符
-	ASSIGN = "="
-	PLUS   = "+"
+	ASSIGN   = "="
+	PLUS     = "+"
+	MINUS    = "-"
+	BANG     = "!"
+	ASTERISK = "*"
+	SLASH    = "/"
+
+	LT     = "<"
+	GT     = ">"
+	EQ     = "=="
+	NOT_EQ = "!="
 
 	// 分隔符
 	COMMA     = ","
@@ -31,4 +41,33 @@ const (
 	// 关键字
 	FUNCTION = "FUNCTION"
 	LET      = "LET"
+	TRUE     = "TRUE"
+	FALSE    = "FALSE"
+	IF       = "IF"
+	ELSE     = "ELSE"
+	RETURN   = "RETURN"
 )
+
+type TokenType string
+
+type Token struct {
+	Type    TokenType
+	Literal string
+}
+
+var keywords = map[string]TokenType{
+	"fn":     FUNCTION,
+	"let":    LET,
+	"true":   TRUE,
+	"false":  FALSE,
+	"if":     IF,
+	"else":   ELSE,
+	"return": RETURN,
+}
+
+func lookupIdent(ident string) TokenType {
+	if tok, ok := keywords[ident]; ok {
+		return tok
+	}
+	return IDENT
+}
