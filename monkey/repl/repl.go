@@ -4,8 +4,9 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"monkey/evaluator"
 	"monkey/lexer"
-	"monkey/token"
+	"monkey/parser"
 )
 
 const PROMPT = ">>"
@@ -21,10 +22,20 @@ func Start(in io.Reader, out io.Writer) {
 		}
 
 		var line = scanner.Text()
-
 		var l = lexer.New(line)
-		for tok := l.NextToken(); tok.Type != token.EOF; tok = l.NextToken() {
-			fmt.Fprintf(out, "%+v\n", tok)
+		var p = parser.New(l)
+
+		var program = p.ParseProgram()
+		if 0 != len(p.Errors()) {
+			continue
 		}
+
+		var evaluated = evaluator.Eval(program)
+		if nil != evaluated {
+			io.WriteString(out, evaluated.Inspect())
+
+			io.WriteString(out, "\n")
+		}
+
 	}
 }

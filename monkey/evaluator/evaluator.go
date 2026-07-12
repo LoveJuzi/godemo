@@ -1,0 +1,65 @@
+package evaluator
+
+import (
+	"monkey/ast"
+	"monkey/object"
+)
+
+var (
+	NULL  = object.NewNull()
+	TRUE  = object.NewBoolean(true)
+	FALSE = object.NewBoolean(false)
+)
+
+func Eval(node ast.Node) object.Object {
+	switch node := node.(type) {
+	case *ast.IntegerLiteral:
+		return object.NewInteger(node.Value)
+	case *ast.Boolean:
+		if node.Value {
+			return TRUE
+		} else {
+			return FALSE
+		}
+	case *ast.PrefixExpression:
+		var right = Eval(node.Right)
+		return evalPrefixExpression(node.Operator, right)
+	case *ast.Program:
+		return evalStatements(node.Statements)
+	case *ast.ExpressionStatement:
+		return Eval(node.Expression)
+	}
+	return nil
+}
+
+func evalStatements(stms []ast.Statement) object.Object {
+	var result object.Object
+
+	for _, statement := range stms {
+		result = Eval(statement)
+	}
+
+	return result
+}
+
+func evalPrefixExpression(operator string, right object.Object) object.Object {
+	switch operator {
+	case "!":
+		return evalBangOperatorExpression(right)
+	default:
+		return NULL
+	}
+}
+
+func evalBangOperatorExpression(right object.Object) object.Object{
+	switch right {
+	case TRUE:
+		return FALSE
+	case FALSE:
+		return TRUE
+	case NULL:
+		return TRUE
+	default:
+		return FALSE
+	}
+}
