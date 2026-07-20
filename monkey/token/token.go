@@ -1,5 +1,7 @@
 package token
 
+import "fmt"
+
 func New(tokenType TokenType, literal string) Token {
 	return Token{Type: tokenType, Literal: literal}
 }
@@ -8,13 +10,28 @@ func NewIdent(literal string) Token {
 	return Token{Type: lookupIdent(literal), Literal: literal}
 }
 
+var ILLEGALToken = Token{Type: ILLEGAL, Literal: ""}
+
+var keywords = map[string]TokenType{
+	"fn":     FUNCTION,
+	"let":    LET,
+	"true":   TRUE,
+	"false":  FALSE,
+	"if":     IF,
+	"else":   ELSE,
+	"return": RETURN,
+}
+
+func lookupIdent(ident string) TokenType {
+	if tok, ok := keywords[ident]; ok {
+		return tok
+	}
+	return IDENT
+}
+
 const (
 	ILLEGAL = "ILLEGAL"
 	EOF     = "EOF"
-
-	// 标识符+字面量
-	IDENT = "IDENT"
-	INT   = "INT"
 
 	// 运算符
 	ASSIGN   = "="
@@ -38,6 +55,10 @@ const (
 	LBRACE = "{"
 	RBRACE = "}"
 
+	// 标识符 + 字面量
+	IDENT = "IDENT"
+	INT   = "INT"
+
 	// 关键字
 	FUNCTION = "FUNCTION"
 	LET      = "LET"
@@ -55,19 +76,10 @@ type Token struct {
 	Literal string
 }
 
-var keywords = map[string]TokenType{
-	"fn":     FUNCTION,
-	"let":    LET,
-	"true":   TRUE,
-	"false":  FALSE,
-	"if":     IF,
-	"else":   ELSE,
-	"return": RETURN,
+func (t Token) String() string {
+	return fmt.Sprintf("%v: %v", t.Type, t.Literal)
 }
 
-func lookupIdent(ident string) TokenType {
-	if tok, ok := keywords[ident]; ok {
-		return tok
-	}
-	return IDENT
+func (t Token) IsEofToken() bool {
+	return EOF == t.Type
 }

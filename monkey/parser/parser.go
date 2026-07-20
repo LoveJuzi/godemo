@@ -60,7 +60,7 @@ func (p *Parser) Errors() []string {
 
 func (p *Parser) nextToken() {
 	p.curToken = p.peekToken
-	p.peekToken = p.l.NextToken()
+	p.peekToken = p.l.GetToken()
 }
 
 func (p *Parser) curTokenIs(t token.TokenType) bool {

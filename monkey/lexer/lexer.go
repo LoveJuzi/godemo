@@ -1,233 +1,355 @@
 package lexer
 
-import "fmt"
-import "monkey/token"
+import (
+	"fmt"
+	"monkey/token"
+)
 
-func New(input string) *Lexer {
-	l := &Lexer{input: input, position: 0}
-	return l
+type lexerType int
+
+const (
+	lexerILLEGAL lexerType = iota
+	lexerEOF
+	lexerPLUS
+	lexerMINUS
+	lexerASTERISK
+	lexerSLASH
+	lexerASSIGN
+	lexerBANG
+	lexerCOMMA
+	lexerSEMICOLON
+	lexerLPAREN
+	lexerRPAREN
+	lexerLBRACE
+	lexerRBRACE
+	lexerLT
+	lexerGT
+	lexerEQ
+	lexerNOT_EQ
+	lexerDIGIT
+	lexerLETTER
+)
+
+func New(inputStr string) *Lexer {
+	return &Lexer{input: &inputStream{input: inputStr, pos: 0}, stack: []token.Token{}}
 }
 
 type Lexer struct {
-	input string
+	input *inputStream
 
-	position int
+	stack []token.Token
 }
 
-type TokenType byte
-
-const (
-	EOF byte = iota
-	ILLEGAL
-	LETTER
-	DIGIT
-	EQ
-	NOT_EQ
-)
-
-var signalToken = map[byte]struct{}{
-	'!': {},
-	'=': {},
-	'+': {},
-	',': {},
-	';': {},
-	'(': {},
-	')': {},
-	'{': {},
-	'}': {},
-	'*': {},
-	'/': {},
-	'-': {},
-	'<': {},
-	'>': {},
-}
-
-type tokenFunc func(l *Lexer) token.Token
-
-var tokenMap = map[byte]tokenFunc{
-	'-': func(l *Lexer) token.Token {
-		l.nextPostion()
-		return token.New(token.MINUS, "-")
-	},
-	'>': func(l *Lexer) token.Token {
-		l.nextPostion()
-		return token.New(token.GT, ">")
-	},
-	'<': func(l *Lexer) token.Token {
-		l.nextPostion()
-		return token.New(token.LT, "<")
-	},
-	'/': func(l *Lexer) token.Token {
-		l.nextPostion()
-		return token.New(token.SLASH, "/")
-	},
-	'*': func(l *Lexer) token.Token {
-		l.nextPostion()
-		return token.New(token.ASTERISK, "*")
-	},
-	'!': func(l *Lexer) token.Token {
-		l.nextPostion()
-		return token.New(token.BANG, "!")
-	},
-	'=': func(l *Lexer) token.Token {
-		l.nextPostion()
-		return token.New(token.ASSIGN, "=")
-	},
-	';': func(l *Lexer) token.Token {
-		l.nextPostion()
-		return token.New(token.SEMICOLON, ";")
-	},
-	'(': func(l *Lexer) token.Token {
-		l.nextPostion()
-		return token.New(token.LPAREN, "(")
-	},
-	')': func(l *Lexer) token.Token {
-		l.nextPostion()
-		return token.New(token.RPAREN, ")")
-	},
-	',': func(l *Lexer) token.Token {
-		l.nextPostion()
-		return token.New(token.COMMA, ",")
-	},
-	'+': func(l *Lexer) token.Token {
-		l.nextPostion()
-		return token.New(token.PLUS, "+")
-	},
-	'{': func(l *Lexer) token.Token {
-		l.nextPostion()
-		return token.New(token.LBRACE, "{")
-	},
-	'}': func(l *Lexer) token.Token {
-		l.nextPostion()
-		return token.New(token.RBRACE, "}")
-	},
-	NOT_EQ: func(l *Lexer) token.Token {
-		l.nextPostion()
-		l.nextPostion()
-		return token.New(token.NOT_EQ, "!=")
-	},
-	EQ: func(l *Lexer) token.Token {
-		l.nextPostion()
-		l.nextPostion()
-		return token.New(token.EQ, "==")
-	},
-	LETTER: func(l *Lexer) token.Token {
-		return token.NewIdent(l.readIndetifier())
-	},
-	DIGIT: func(l *Lexer) token.Token {
-		return token.New(token.INT, l.readNumber())
-	},
-	ILLEGAL: func(l *Lexer) token.Token {
-		return token.New(token.ILLEGAL, "")
-	},
-	EOF: func(l *Lexer) token.Token {
-		return token.New(token.EOF, "")
-	},
-}
-
-func (l *Lexer) NextToken() token.Token {
-	l.skipWhitespace()
-
-	typ := l.getTokenType()
-
-	fn, ok := tokenMap[typ]
-	if !ok {
-		panic(fmt.Sprintf("unknown token type: %v", typ))
+func (l *Lexer) GetToken() token.Token {
+	// 从缓存中获得token
+	if tok, ok := l.getTokenFromStack(); ok {
+		return tok
 	}
 
-	return fn(l)
+	// 跳过空白符号
+	l.skipWhiteSpace()
+
+	// 获取分词的类型
+	var lexerType_ = l.getLexerType()
+
+	// 获取处理函数
+	if fn, ok := getTokenTable[lexerType_]; ok {
+		return fn(l)
+	}
+	panic(fmt.Sprintf("unknown lexer type: %v", lexerType_))
 }
 
-func (l *Lexer) getTokenType() byte {
-	var ch = l.curChar()
+func (l *Lexer) UngetToken(tok token.Token) {
+	l.stack = append(l.stack, tok)
+}
 
+func (l *Lexer) getTokenFromStack() (token.Token, bool) {
+	n := len(l.stack)
+	if 0 == n {
+		return token.ILLEGALToken, false
+	}
+
+	defer func() { l.stack = l.stack[:n-1] }()
+	return l.stack[n-1], true
+}
+
+func (l *Lexer) getLexerType() lexerType {
+	var ch byte
+	ch = l.input.getChar()
 	if 0 == ch {
-		return EOF
+		l.input.ungetChar()
+		return lexerEOF
 	}
 
-	if '=' == ch && '=' == l.peekChar() {
-		return EQ
+	if '+' == ch {
+		l.input.ungetChar()
+		return lexerPLUS
 	}
 
-	if '!' == ch && '=' == l.peekChar() {
-		return NOT_EQ
+	if '-' == ch {
+		l.input.ungetChar()
+		return lexerMINUS
 	}
 
-	if _, ok := signalToken[ch]; ok {
-		return ch
+	if '*' == ch {
+		l.input.ungetChar()
+		return lexerASTERISK
 	}
 
-	if isLetter(ch) {
-		return LETTER
+	if '/' == ch {
+		l.input.ungetChar()
+		return lexerSLASH
 	}
 
-	if isDigit(ch) {
-		return DIGIT
+	if '<' == ch {
+		l.input.ungetChar()
+		return lexerLT
 	}
 
-	return ILLEGAL
+	if '>' == ch {
+		l.input.ungetChar()
+		return lexerGT
+	}
+
+	if '=' == ch {
+		ch = l.input.getChar()
+		if '=' == ch {
+			l.input.ungetChar()
+			l.input.ungetChar()
+			return lexerEQ
+		}
+		l.input.ungetChar()
+		l.input.ungetChar()
+		return lexerASSIGN
+	}
+
+	if '!' == ch {
+		ch = l.input.getChar()
+		if '=' == ch {
+			l.input.ungetChar()
+			l.input.ungetChar()
+			return lexerNOT_EQ
+		}
+		l.input.ungetChar()
+		l.input.ungetChar()
+		return lexerBANG
+	}
+
+	if '(' == ch {
+		l.input.ungetChar()
+		return lexerLPAREN
+	}
+
+	if ')' == ch {
+		l.input.ungetChar()
+		return lexerRPAREN
+	}
+
+	if '{' == ch {
+		l.input.ungetChar()
+		return lexerLBRACE
+	}
+
+	if '}' == ch {
+		l.input.ungetChar()
+		return lexerRBRACE
+	}
+
+	if ',' == ch {
+		l.input.ungetChar()
+		return lexerCOMMA
+	}
+
+	if ';' == ch {
+		l.input.ungetChar()
+		return lexerSEMICOLON
+	}
+
+	if l.isDigit(ch) {
+		l.input.ungetChar()
+		return lexerDIGIT
+	}
+
+	if l.isLetter(ch) {
+		l.input.ungetChar()
+		return lexerLETTER
+	}
+
+	l.input.ungetChar()
+	return lexerILLEGAL
 }
 
-func isLetter(ch byte) bool {
-	return 'a' <= ch && 'z' >= ch || 'A' <= ch && 'Z' >= ch || '_' == ch
-}
-
-func isDigit(ch byte) bool {
-	return '0' <= ch && '9' >= ch
-}
-
-func isWhitespace(ch byte) bool {
+func (l *Lexer) isWhiteChar(ch byte) bool {
 	return ' ' == ch || '\t' == ch || '\n' == ch || '\r' == ch
 }
 
-func (l *Lexer) nextPostion() {
-	if l.position >= len(l.input) {
-		return
+func (l *Lexer) skipWhiteSpace() {
+	var ch = l.input.getChar()
+	for l.isWhiteChar(ch) {
+		ch = l.input.getChar()
 	}
-	l.position += 1
+	l.input.ungetChar()
 }
 
-func (l *Lexer) curPostion() int {
-	return l.position
-}
-
-func (l *Lexer) curChar() byte {
-	return l.getChar(l.position)
-}
-
-func (l *Lexer) peekChar() byte {
-	return l.getChar(l.position + 1)
-}
-
-func (l *Lexer) getChar(pos int) byte {
-	if pos >= len(l.input) {
-		return 0
-	}
-	return l.input[pos]
-}
-
-func (l *Lexer) skipWhitespace() {
-	for isWhitespace(l.curChar()) {
-		l.nextPostion()
-	}
-}
-
-func (l *Lexer) readIndetifier() string {
-	start := l.curPostion()
-
-	for isLetter(l.curChar()) {
-		l.nextPostion()
-	}
-
-	return string(l.input[start:l.curPostion()])
+func (l *Lexer) isDigit(ch byte) bool {
+	return '0' <= ch && '9' >= ch
 }
 
 func (l *Lexer) readNumber() string {
-	start := l.curPostion()
+	var number []byte
 
-	for isDigit(l.curChar()) {
-		l.nextPostion()
+	var ch = l.input.getChar()
+	for l.isDigit(ch) {
+		number = append(number, ch)
+		ch = l.input.getChar()
 	}
+	l.input.ungetChar()
 
-	return string(l.input[start:l.curPostion()])
+	return string(number)
+}
+
+func (l *Lexer) isLetter(ch byte) bool {
+	return ('a' <= ch && 'z' >= ch) || ('A' <= ch && 'Z' >= ch) || '_' == ch
+}
+
+func (l *Lexer) readWord() string {
+	var word []byte
+
+	var ch = l.input.getChar()
+	for l.isLetter(ch) {
+		word = append(word, ch)
+		ch = l.input.getChar()
+	}
+	l.input.ungetChar()
+
+	return string(word)
+}
+
+func (l *Lexer) getIllegalToken() token.Token {
+	var ch = l.input.getChar()
+	return token.New(token.ILLEGAL, string(ch))
+}
+
+func (l *Lexer) getEofToken() token.Token {
+	l.input.getChar()
+	return token.New(token.EOF, "")
+}
+
+func (l *Lexer) getPlusToken() token.Token {
+	l.input.getChar()
+	return token.New(token.PLUS, "+")
+}
+
+func (l *Lexer) getMinusToken() token.Token {
+	l.input.getChar()
+	return token.New(token.MINUS, "-")
+}
+
+func (l *Lexer) getAsteriskToken() token.Token {
+	l.input.getChar()
+	return token.New(token.ASTERISK, "*")
+}
+
+func (l *Lexer) getSlashToken() token.Token {
+	l.input.getChar()
+	return token.New(token.SLASH, "/")
+}
+
+func (l *Lexer) getAssignToken() token.Token {
+	l.input.getChar()
+	return token.New(token.ASSIGN, "=")
+}
+
+func (l *Lexer) getBangToken() token.Token {
+	l.input.getChar()
+	return token.New(token.BANG, "!")
+}
+
+func (l *Lexer) getCommaToken() token.Token {
+	l.input.getChar()
+	return token.New(token.COMMA, ",")
+}
+
+func (l *Lexer) getSemicolonToken() token.Token {
+	l.input.getChar()
+	return token.New(token.SEMICOLON, ";")
+}
+
+func (l *Lexer) getLparenToken() token.Token {
+	l.input.getChar()
+	return token.New(token.LPAREN, "(")
+}
+
+func (l *Lexer) getRparenToken() token.Token {
+	l.input.getChar()
+	return token.New(token.RPAREN, ")")
+}
+
+func (l *Lexer) getLbraceToken() token.Token {
+	l.input.getChar()
+	return token.New(token.LBRACE, "{")
+}
+
+func (l *Lexer) getRbraceToken() token.Token {
+	l.input.getChar()
+	return token.New(token.RBRACE, "}")
+}
+
+func (l *Lexer) getLtToken() token.Token {
+	l.input.getChar()
+	return token.New(token.LT, "<")
+}
+
+func (l *Lexer) getGtToken() token.Token {
+	l.input.getChar()
+	return token.New(token.GT, ">")
+}
+
+func (l *Lexer) getEqToken() token.Token {
+	l.input.getChar()
+	l.input.getChar()
+	return token.New(token.EQ, "==")
+}
+
+func (l *Lexer) getNotEqToken() token.Token {
+	l.input.getChar()
+	l.input.getChar()
+	return token.New(token.NOT_EQ, "!=")
+}
+
+func (l *Lexer) getDigitToken() token.Token {
+	return token.New(token.INT, l.readNumber())
+}
+
+func (l *Lexer) getWordToken() token.Token {
+	return token.NewIdent(l.readWord())
+}
+
+type getTokenFunc func(l *Lexer) token.Token
+
+var getTokenTable map[lexerType]getTokenFunc
+
+func init() {
+	getTokenTable = map[lexerType]getTokenFunc{
+		lexerILLEGAL:   (*Lexer).getIllegalToken,
+		lexerEOF:       (*Lexer).getEofToken,
+		lexerPLUS:      (*Lexer).getPlusToken,
+		lexerMINUS:     (*Lexer).getMinusToken,
+		lexerASTERISK:  (*Lexer).getAsteriskToken,
+		lexerSLASH:     (*Lexer).getSlashToken,
+		lexerASSIGN:    (*Lexer).getAssignToken,
+		lexerBANG:      (*Lexer).getBangToken,
+		lexerCOMMA:     (*Lexer).getCommaToken,
+		lexerSEMICOLON: (*Lexer).getSemicolonToken,
+		lexerLPAREN:    (*Lexer).getLparenToken,
+		lexerRPAREN:    (*Lexer).getRparenToken,
+		lexerLBRACE:    (*Lexer).getLbraceToken,
+		lexerRBRACE:    (*Lexer).getRbraceToken,
+		lexerLT:        (*Lexer).getLtToken,
+		lexerGT:        (*Lexer).getGtToken,
+		lexerEQ:        (*Lexer).getEqToken,
+		lexerNOT_EQ:    (*Lexer).getNotEqToken,
+		lexerDIGIT:     (*Lexer).getDigitToken,
+		lexerLETTER:    (*Lexer).getWordToken,
+	}
 }
