@@ -57,6 +57,12 @@ func (e *Evaluator) evalIntegerLiteral(node ast.Node) object.Object {
 	return object.NewInteger(intLiteral.Value)
 }
 
+func (e *Evaluator) evalBoolean(node ast.Node) object.Object {
+	var boolLiteral = node.(*ast.Boolean)
+
+	return object.NewBoolean(boolLiteral.Value)
+}
+
 type evalFunc func(e *Evaluator, node ast.Node) object.Object
 
 var evalFuncTable map[ast.NodeType]evalFunc
@@ -67,7 +73,6 @@ func init() {
 		ast.NodeExpressionStatement: (*Evaluator).evalExpressionStatement,
 		// ast.NodePrefixExpression:    (*Evaluator).evalPrefixExpression,
 		// ast.NodeInfixExpression:     (*Evaluator).evalInfixExpression,
-		// ast.NodeBoolean:             (*Evaluator).evalBoolean,
 		// ast.NodeIfExpression:        (*Evaluator).evalIfExpression,
 		// ast.NodeBlockStatement:      (*Evaluator).evalBlockStatement,
 		// ast.NodeReturnStatement:     (*Evaluator).evalReturnStatement,
@@ -76,5 +81,6 @@ func init() {
 		// ast.NodeFunctionLiteral:     (*Evaluator).evalFunctionLiteral,
 		// ast.NodeCallExpression:      (*Evaluator).evalCallExpression,
 		ast.NodeIntegerLiteral: (*Evaluator).evalIntegerLiteral,
+		ast.NodeBoolean:        (*Evaluator).evalBoolean,
 	}
 }
