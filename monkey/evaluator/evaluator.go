@@ -78,7 +78,6 @@ func (e *Evaluator) evalBoolean(node ast.Node) object.Object {
 }
 
 func (e *Evaluator) evalBangOperatorExpression(right object.Object) object.Object {
-	fmt.Printf("%s\n", right.Inspect())
 	switch right {
 	case TRUE:
 		return FALSE
