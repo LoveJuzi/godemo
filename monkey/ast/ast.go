@@ -6,9 +6,29 @@ import (
 	"strings"
 )
 
+type NodeType int
+
+const (
+	NodeUnknown NodeType = iota
+	NodeProgram
+	NodeReturnStatement
+	NodeLetStatement
+	NodeExpressionStatement
+	NodeIdentifier
+	NodeBoolean
+	NodeIfExpression
+	NodeFunctionLiteral
+	NodeCallExpression
+	NodeBlockStatement
+	NodePrefixExpression
+	NodeInfixExpression
+	NodeIntegerLiteral
+)
+
 type Node interface {
 	TokenLiteral() string
 	String() string
+	Kind() NodeType
 }
 
 type Statement interface {
@@ -32,7 +52,6 @@ func (p *Program) TokenLiteral() string {
 		return ""
 	}
 }
-
 func (p *Program) String() string {
 	var out bytes.Buffer
 
@@ -41,6 +60,9 @@ func (p *Program) String() string {
 	}
 
 	return out.String()
+}
+func (p *Program) Kind() NodeType {
+	return NodeProgram
 }
 
 func NewLetStatement(
@@ -79,6 +101,9 @@ func (ls *LetStatement) String() string {
 
 	return out.String()
 }
+func (ls *LetStatement) Kind() NodeType {
+	return NodeLetStatement
+}
 
 func NewReturnStatement(
 	tokenObj token.Token,
@@ -108,6 +133,9 @@ func (rs *ReturnStatement) String() string {
 
 	return out.String()
 }
+func (rs *ReturnStatement) Kind() NodeType {
+	return NodeReturnStatement
+}
 
 func NewExpressionStatement(
 	tokenObj token.Token,
@@ -130,6 +158,9 @@ func (es *ExpressionStatement) String() string {
 	}
 	return ""
 }
+func (es *ExpressionStatement) Kind() NodeType {
+	return NodeExpressionStatement
+}
 
 //////////////////////////////////////////////////////////////////////
 
@@ -147,6 +178,9 @@ func (i *Identifier) TokenLiteral() string {
 	return i.Token.Literal
 }
 func (i *Identifier) String() string { return i.Value }
+func (i *Identifier) Kind() NodeType {
+	return NodeIdentifier
+}
 
 func NewIntegerLiteral(tokenObj token.Token, value int64) *IntegerLiteral {
 	return &IntegerLiteral{Token: tokenObj, Value: value}
@@ -163,6 +197,9 @@ func (il *IntegerLiteral) TokenLiteral() string {
 }
 func (il *IntegerLiteral) String() string {
 	return il.Token.Literal
+}
+func (il *IntegerLiteral) Kind() NodeType {
+	return NodeIntegerLiteral
 }
 
 func NewPrefixExpression(
@@ -194,6 +231,9 @@ func (pe *PrefixExpression) String() string {
 	out.WriteString(")")
 
 	return out.String()
+}
+func (pe *PrefixExpression) Kind() NodeType {
+	return NodePrefixExpression
 }
 
 func NewInfixExpression(
@@ -231,6 +271,9 @@ func (ie *InfixExpression) String() string {
 
 	return out.String()
 }
+func (ie *InfixExpression) Kind() NodeType {
+	return NodeInfixExpression
+}
 
 func NewBoolean(tokenObj token.Token, value bool) *Boolean {
 	return &Boolean{
@@ -250,6 +293,9 @@ func (b *Boolean) TokenLiteral() string {
 }
 func (b *Boolean) String() string {
 	return b.Token.Literal
+}
+func (b *Boolean) Kind() NodeType {
+	return NodeBoolean
 }
 
 func NewIfExpression(
@@ -291,6 +337,9 @@ func (ie *IfExpression) String() string {
 
 	return out.String()
 }
+func (ie *IfExpression) Kind() NodeType {
+	return NodeIfExpression
+}
 
 func NewBlockStatement(
 	tokenObj token.Token,
@@ -321,6 +370,9 @@ func (bs *BlockStatement) String() string {
 	out.WriteString("}")
 
 	return out.String()
+}
+func (bs *BlockStatement) Kind() NodeType {
+	return NodeBlockStatement
 }
 
 func NewFunctionLiteral(
@@ -360,6 +412,9 @@ func (fl *FunctionLiteral) String() string {
 
 	return out.String()
 }
+func (fl *FunctionLiteral) Kind() NodeType {
+	return NodeFunctionLiteral
+}
 
 func NewCallExpression(
 	tokenObj token.Token,
@@ -397,4 +452,7 @@ func (ce *CallExpression) String() string {
 	out.WriteString(")")
 
 	return out.String()
+}
+func (ce *CallExpression) Kind() NodeType {
+	return NodeCallExpression
 }

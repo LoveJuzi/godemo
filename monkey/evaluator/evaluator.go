@@ -1,6 +1,7 @@
 package evaluator
 
 import (
+	"fmt"
 	"monkey/ast"
 	"monkey/object"
 )
@@ -11,55 +12,69 @@ var (
 	FALSE = object.NewBoolean(false)
 )
 
-func Eval(node ast.Node) object.Object {
-	switch node := node.(type) {
-	case *ast.IntegerLiteral:
-		return object.NewInteger(node.Value)
-	case *ast.Boolean:
-		if node.Value {
-			return TRUE
-		} else {
-			return FALSE
-		}
-	case *ast.PrefixExpression:
-		var right = Eval(node.Right)
-		return evalPrefixExpression(node.Operator, right)
-	case *ast.Program:
-		return evalStatements(node.Statements)
-	case *ast.ExpressionStatement:
-		return Eval(node.Expression)
+func New(program *ast.Program) *Evaluator {
+	return &Evaluator{
+		program: program,
 	}
-	return nil
 }
 
-func evalStatements(stms []ast.Statement) object.Object {
+type Evaluator struct {
+	program *ast.Program
+}
+
+func (e *Evaluator) Eval() object.Object {
+	return e.EvalImpl(e.program)
+}
+
+func (e *Evaluator) EvalImpl(node ast.Node) object.Object {
+	if evalFunc, ok := evalFuncTable[node.Kind()]; ok {
+		return evalFunc(e, node)
+	}
+	panic(fmt.Sprintf("unknown node type: %d", node.Kind()))
+}
+
+func (e *Evaluator) evalProgram(node ast.Node) object.Object {
+	var program = node.(*ast.Program)
+
 	var result object.Object
 
-	for _, statement := range stms {
-		result = Eval(statement)
+	for _, statement := range program.Statements {
+		result = e.EvalImpl(statement)
 	}
 
 	return result
 }
 
-func evalPrefixExpression(operator string, right object.Object) object.Object {
-	switch operator {
-	case "!":
-		return evalBangOperatorExpression(right)
-	default:
-		return NULL
-	}
+func (e *Evaluator) evalExpressionStatement(node ast.Node) object.Object {
+	var expStmt = node.(*ast.ExpressionStatement)
+
+	return e.EvalImpl(expStmt.Expression)
 }
 
-func evalBangOperatorExpression(right object.Object) object.Object{
-	switch right {
-	case TRUE:
-		return FALSE
-	case FALSE:
-		return TRUE
-	case NULL:
-		return TRUE
-	default:
-		return FALSE
+func (e *Evaluator) evalIntegerLiteral(node ast.Node) object.Object {
+	var intLiteral = node.(*ast.IntegerLiteral)
+
+	return object.NewInteger(intLiteral.Value)
+}
+
+type evalFunc func(e *Evaluator, node ast.Node) object.Object
+
+var evalFuncTable map[ast.NodeType]evalFunc
+
+func init() {
+	evalFuncTable = map[ast.NodeType]evalFunc{
+		ast.NodeProgram:             (*Evaluator).evalProgram,
+		ast.NodeExpressionStatement: (*Evaluator).evalExpressionStatement,
+		// ast.NodePrefixExpression:    (*Evaluator).evalPrefixExpression,
+		// ast.NodeInfixExpression:     (*Evaluator).evalInfixExpression,
+		// ast.NodeBoolean:             (*Evaluator).evalBoolean,
+		// ast.NodeIfExpression:        (*Evaluator).evalIfExpression,
+		// ast.NodeBlockStatement:      (*Evaluator).evalBlockStatement,
+		// ast.NodeReturnStatement:     (*Evaluator).evalReturnStatement,
+		// ast.NodeLetStatement:        (*Evaluator).evalLetStatement,
+		// ast.NodeIdentifier:          (*Evaluator).evalIdentifier,
+		// ast.NodeFunctionLiteral:     (*Evaluator).evalFunctionLiteral,
+		// ast.NodeCallExpression:      (*Evaluator).evalCallExpression,
+		ast.NodeIntegerLiteral: (*Evaluator).evalIntegerLiteral,
 	}
 }

@@ -30,7 +30,7 @@ func Start(in io.Reader, out io.Writer) {
 			continue
 		}
 
-		var evaluated = evaluator.Eval(program)
+		var evaluated = evaluator.New(program).Eval()
 		if nil != evaluated {
 			io.WriteString(out, evaluated.Inspect())
 
