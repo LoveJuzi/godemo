@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"monkey/ast"
 	"monkey/object"
+	"monkey/token"
 )
 
 var (
@@ -51,6 +52,17 @@ func (e *Evaluator) evalExpressionStatement(node ast.Node) object.Object {
 	return e.EvalImpl(expStmt.Expression)
 }
 
+func (e *Evaluator) evalPrefixExpression(node ast.Node) object.Object {
+	var prefixExp = node.(*ast.PrefixExpression)
+
+	var right = e.EvalImpl(prefixExp.Right)
+
+	if evalPrefixExprFunc, ok := evalPrefixExprFuncTable[prefixExp.Token.Type]; ok {
+		return evalPrefixExprFunc(e, right)
+	}
+	panic(fmt.Sprintf("unknown operator: %s", prefixExp.Operator))
+}
+
 func (e *Evaluator) evalIntegerLiteral(node ast.Node) object.Object {
 	var intLiteral = node.(*ast.IntegerLiteral)
 
@@ -59,19 +71,42 @@ func (e *Evaluator) evalIntegerLiteral(node ast.Node) object.Object {
 
 func (e *Evaluator) evalBoolean(node ast.Node) object.Object {
 	var boolLiteral = node.(*ast.Boolean)
+	if boolLiteral.Value {
+		return TRUE
+	}
+	return FALSE
+}
 
-	return object.NewBoolean(boolLiteral.Value)
+func (e *Evaluator) evalBangOperatorExpression(right object.Object) object.Object {
+	fmt.Printf("%s\n", right.Inspect())
+	switch right {
+	case TRUE:
+		fmt.Printf("======>H1\n")
+		return FALSE
+	case FALSE:
+		fmt.Printf("======>H2\n")
+		return TRUE
+	case NULL:
+		fmt.Printf("======>H3\n")
+		return TRUE
+	default:
+		fmt.Printf("======>H4\n")
+		return FALSE
+	}
 }
 
 type evalFunc func(e *Evaluator, node ast.Node) object.Object
 
 var evalFuncTable map[ast.NodeType]evalFunc
 
+type evalPrefixExprFunc func(e *Evaluator, right object.Object) object.Object
+
+var evalPrefixExprFuncTable map[token.TokenType]evalPrefixExprFunc
+
 func init() {
 	evalFuncTable = map[ast.NodeType]evalFunc{
 		ast.NodeProgram:             (*Evaluator).evalProgram,
 		ast.NodeExpressionStatement: (*Evaluator).evalExpressionStatement,
-		// ast.NodePrefixExpression:    (*Evaluator).evalPrefixExpression,
 		// ast.NodeInfixExpression:     (*Evaluator).evalInfixExpression,
 		// ast.NodeIfExpression:        (*Evaluator).evalIfExpression,
 		// ast.NodeBlockStatement:      (*Evaluator).evalBlockStatement,
@@ -80,7 +115,13 @@ func init() {
 		// ast.NodeIdentifier:          (*Evaluator).evalIdentifier,
 		// ast.NodeFunctionLiteral:     (*Evaluator).evalFunctionLiteral,
 		// ast.NodeCallExpression:      (*Evaluator).evalCallExpression,
-		ast.NodeIntegerLiteral: (*Evaluator).evalIntegerLiteral,
-		ast.NodeBoolean:        (*Evaluator).evalBoolean,
+		ast.NodePrefixExpression: (*Evaluator).evalPrefixExpression,
+		ast.NodeIntegerLiteral:   (*Evaluator).evalIntegerLiteral,
+		ast.NodeBoolean:          (*Evaluator).evalBoolean,
+	}
+
+	evalPrefixExprFuncTable = map[token.TokenType]evalPrefixExprFunc{
+		token.BANG: (*Evaluator).evalBangOperatorExpression,
+		// token.MINUS: (*Evaluator).evalMinusPrefixOperatorExpression,
 	}
 }
