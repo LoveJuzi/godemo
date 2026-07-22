@@ -81,16 +81,12 @@ func (e *Evaluator) evalBangOperatorExpression(right object.Object) object.Objec
 	fmt.Printf("%s\n", right.Inspect())
 	switch right {
 	case TRUE:
-		fmt.Printf("======>H1\n")
 		return FALSE
 	case FALSE:
-		fmt.Printf("======>H2\n")
 		return TRUE
 	case NULL:
-		fmt.Printf("======>H3\n")
 		return TRUE
 	default:
-		fmt.Printf("======>H4\n")
 		return FALSE
 	}
 }
