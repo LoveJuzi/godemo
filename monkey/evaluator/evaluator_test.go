@@ -60,3 +60,22 @@ func TestEvalBangOperatorCase1(t *testing.T) {
 		assert.Equal(t, golden[i], obj.Inspect(), "input: %s", input)
 	}
 }
+
+func TestEvalMinusPrefixOperatorCase1(t *testing.T) {
+	var inputs = []string{
+		"-5",
+		"-10",
+		"--10",
+	}
+	var golden = []string{
+		"-5",
+		"-10",
+		"10",
+	}
+	for i, input := range inputs {
+		l := lexer.New(input)
+		p := parser.New(l)
+		obj := New(p.ParseProgram()).Eval()
+		assert.Equal(t, golden[i], obj.Inspect(), "input: %s", input)
+	}
+}

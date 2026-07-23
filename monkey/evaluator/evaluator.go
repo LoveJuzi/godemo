@@ -90,6 +90,14 @@ func (e *Evaluator) evalBangOperatorExpression(right object.Object) object.Objec
 	}
 }
 
+func (e *Evaluator) evalMinusPrefixOperatorExpression(right object.Object) object.Object {
+	if right.Type() == object.INTEGER_OBJ {
+		var value = right.(*object.Integer).Value
+		return object.NewInteger(-value)
+	}
+	panic(fmt.Sprintf("unknown operator: -%s", right.Type()))
+}
+
 type evalFunc func(e *Evaluator, node ast.Node) object.Object
 
 var evalFuncTable map[ast.NodeType]evalFunc
@@ -116,7 +124,7 @@ func init() {
 	}
 
 	evalPrefixExprFuncTable = map[token.TokenType]evalPrefixExprFunc{
-		token.BANG: (*Evaluator).evalBangOperatorExpression,
-		// token.MINUS: (*Evaluator).evalMinusPrefixOperatorExpression,
+		token.BANG:  (*Evaluator).evalBangOperatorExpression,
+		token.MINUS: (*Evaluator).evalMinusPrefixOperatorExpression,
 	}
 }
