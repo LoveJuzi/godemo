@@ -59,6 +59,17 @@ func (e *Evaluator) evalExpressionStatement(node ast.Node) object.Object {
 	return e.EvalImpl(expStmt.Expression)
 }
 
+func (e *Evaluator) evalPrefixExpression(node ast.Node) object.Object {
+	var prefixExp = node.(*ast.PrefixExpression)
+
+	var right = e.EvalImpl(prefixExp.Right)
+
+	if evalPrefixExprFunc, ok := evalPrefixExprFuncTable[prefixExp.Token.Type]; ok {
+		return evalPrefixExprFunc(e, right)
+	}
+	panic(fmt.Sprintf("unknown operator: %s", prefixExp.Operator))
+}
+
 func (e *Evaluator) evalInfixExpression(node ast.Node) object.Object {
 	var infixExp = node.(*ast.InfixExpression)
 
@@ -71,15 +82,43 @@ func (e *Evaluator) evalInfixExpression(node ast.Node) object.Object {
 	panic(fmt.Sprintf("unknown operator: %s %s %s", left.Type(), infixExp.Operator, right.Type()))
 }
 
-func (e *Evaluator) evalPrefixExpression(node ast.Node) object.Object {
-	var prefixExp = node.(*ast.PrefixExpression)
+func (e *Evaluator) evalIfExpression(node ast.Node) object.Object {
+	var ifExp = node.(*ast.IfExpression)
 
-	var right = e.EvalImpl(prefixExp.Right)
+	var condition = e.EvalImpl(ifExp.Condition)
 
-	if evalPrefixExprFunc, ok := evalPrefixExprFuncTable[prefixExp.Token.Type]; ok {
-		return evalPrefixExprFunc(e, right)
+	if e.isTruthy(condition) {
+		return e.EvalImpl(ifExp.Consequence)
+	} else if ifExp.Alternative != nil {
+		return e.EvalImpl(ifExp.Alternative)
+	} else {
+		return NULL
 	}
-	panic(fmt.Sprintf("unknown operator: %s", prefixExp.Operator))
+}
+
+func (e *Evaluator) evalBlockStatement(node ast.Node) object.Object {
+	var blockStmt = node.(*ast.BlockStatement)
+
+	var result object.Object
+
+	for _, statement := range blockStmt.Statements {
+		result = e.EvalImpl(statement)
+	}
+
+	return result
+}
+
+func (e *Evaluator) isTruthy(obj object.Object) bool {
+	switch obj {
+	case TRUE:
+		return true
+	case FALSE:
+		return false
+	case NULL:
+		return false
+	default:
+		return true
+	}
 }
 
 func (e *Evaluator) evalIntegerLiteral(node ast.Node) object.Object {
@@ -208,17 +247,17 @@ func init() {
 	evalFuncTable = map[ast.NodeType]evalFunc{
 		ast.NodeProgram:             (*Evaluator).evalProgram,
 		ast.NodeExpressionStatement: (*Evaluator).evalExpressionStatement,
+		ast.NodePrefixExpression:    (*Evaluator).evalPrefixExpression,
 		ast.NodeInfixExpression:     (*Evaluator).evalInfixExpression,
-		// ast.NodeIfExpression:        (*Evaluator).evalIfExpression,
-		// ast.NodeBlockStatement:      (*Evaluator).evalBlockStatement,
+		ast.NodeIfExpression:        (*Evaluator).evalIfExpression,
+		ast.NodeBlockStatement:      (*Evaluator).evalBlockStatement,
 		// ast.NodeReturnStatement:     (*Evaluator).evalReturnStatement,
 		// ast.NodeLetStatement:        (*Evaluator).evalLetStatement,
 		// ast.NodeIdentifier:          (*Evaluator).evalIdentifier,
 		// ast.NodeFunctionLiteral:     (*Evaluator).evalFunctionLiteral,
 		// ast.NodeCallExpression:      (*Evaluator).evalCallExpression,
-		ast.NodePrefixExpression: (*Evaluator).evalPrefixExpression,
-		ast.NodeIntegerLiteral:   (*Evaluator).evalIntegerLiteral,
-		ast.NodeBoolean:          (*Evaluator).evalBoolean,
+		ast.NodeIntegerLiteral: (*Evaluator).evalIntegerLiteral,
+		ast.NodeBoolean:        (*Evaluator).evalBoolean,
 	}
 
 	evalPrefixExprFuncTable = map[token.TokenType]evalPrefixExprFunc{

@@ -120,3 +120,24 @@ func TestEvalInfixOperator(t *testing.T) {
 		assert.Equal(t, golden[i], obj.Inspect(), "input: %s", input)
 	}
 }
+
+func TestEvalIfExpression(t *testing.T) {
+	var inputs = []string{
+		"if (true) { 10 }",
+		"if (false) { 10 } else { 20 }",
+		"if (5 < 10) { 10 } else { 20 }",
+		"if (false) { 10 }",
+	}
+	var golden = []string{
+		"10",
+		"20",
+		"10",
+		"null",
+	}
+	for i, input := range inputs {
+		l := lexer.New(input)
+		p := parser.New(l)
+		obj := New(p.ParseProgram()).Eval()
+		assert.Equal(t, golden[i], obj.Inspect(), "input: %s", input)
+	}
+}
