@@ -56,6 +56,29 @@ func (e *Evaluator) evalProgram(node ast.Node) object.Object {
 	return result
 }
 
+func (e *Evaluator) evalBlockStatement(node ast.Node) object.Object {
+	var blockStmt = node.(*ast.BlockStatement)
+
+	var result object.Object
+
+	for _, statement := range blockStmt.Statements {
+		result = e.EvalImpl(statement)
+		if result.Type() == object.RETURN_VALUE_OBJ {
+			return result
+		}
+	}
+
+	return result
+}
+
+func (e *Evaluator) evalReturnStatement(node ast.Node) object.Object {
+	var returnStmt = node.(*ast.ReturnStatement)
+
+	var value = e.EvalImpl(returnStmt.ReturnValue)
+
+	return object.NewReturnValue(value)
+}
+
 func (e *Evaluator) evalExpressionStatement(node ast.Node) object.Object {
 	var expStmt = node.(*ast.ExpressionStatement)
 
@@ -97,29 +120,6 @@ func (e *Evaluator) evalIfExpression(node ast.Node) object.Object {
 	} else {
 		return NULL
 	}
-}
-
-func (e *Evaluator) evalBlockStatement(node ast.Node) object.Object {
-	var blockStmt = node.(*ast.BlockStatement)
-
-	var result object.Object
-
-	for _, statement := range blockStmt.Statements {
-		result = e.EvalImpl(statement)
-		if result.Type() == object.RETURN_VALUE_OBJ {
-			return result
-		}
-	}
-
-	return result
-}
-
-func (e *Evaluator) evalReturnStatement(node ast.Node) object.Object {
-	var returnStmt = node.(*ast.ReturnStatement)
-
-	var value = e.EvalImpl(returnStmt.ReturnValue)
-
-	return object.NewReturnValue(value)
 }
 
 func (e *Evaluator) isTruthy(obj object.Object) bool {
@@ -260,12 +260,12 @@ var evalInfixExprFuncTable map[token.TokenType]evalInfixExprFunc
 func init() {
 	evalFuncTable = map[ast.NodeType]evalFunc{
 		ast.NodeProgram:             (*Evaluator).evalProgram,
+		ast.NodeBlockStatement:      (*Evaluator).evalBlockStatement,
+		ast.NodeReturnStatement:     (*Evaluator).evalReturnStatement,
 		ast.NodeExpressionStatement: (*Evaluator).evalExpressionStatement,
 		ast.NodePrefixExpression:    (*Evaluator).evalPrefixExpression,
 		ast.NodeInfixExpression:     (*Evaluator).evalInfixExpression,
 		ast.NodeIfExpression:        (*Evaluator).evalIfExpression,
-		ast.NodeBlockStatement:      (*Evaluator).evalBlockStatement,
-		ast.NodeReturnStatement:     (*Evaluator).evalReturnStatement,
 		// ast.NodeLetStatement:        (*Evaluator).evalLetStatement,
 		// ast.NodeIdentifier:          (*Evaluator).evalIdentifier,
 		// ast.NodeFunctionLiteral:     (*Evaluator).evalFunctionLiteral,
