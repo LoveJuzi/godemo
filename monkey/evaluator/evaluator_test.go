@@ -36,7 +36,7 @@ func TestEvalBoolean(t *testing.T) {
 	}
 }
 
-func TestEvalBangOperatorCase1(t *testing.T) {
+func TestEvalBangOperator(t *testing.T) {
 	var inputs = []string{
 		"!true",
 		"!false",
@@ -61,7 +61,7 @@ func TestEvalBangOperatorCase1(t *testing.T) {
 	}
 }
 
-func TestEvalMinusPrefixOperatorCase1(t *testing.T) {
+func TestEvalMinusPrefixOperator(t *testing.T) {
 	var inputs = []string{
 		"-5",
 		"-10",
@@ -71,6 +71,47 @@ func TestEvalMinusPrefixOperatorCase1(t *testing.T) {
 		"-5",
 		"-10",
 		"10",
+	}
+	for i, input := range inputs {
+		l := lexer.New(input)
+		p := parser.New(l)
+		obj := New(p.ParseProgram()).Eval()
+		assert.Equal(t, golden[i], obj.Inspect(), "input: %s", input)
+	}
+}
+
+func TestEvalInfixOperator(t *testing.T) {
+	var inputs = []string{
+		"5 + 10",
+		"5 - 10",
+		"5 * 10",
+		"10 / 2",
+		"5 > 10",
+		"5 < 10",
+		"5 == 5",
+		"5 != 10",
+		"5 == 10",
+		"5 != 5",
+		"true == true",
+		"false == false",
+		"true != false",
+		"false != false",
+	}
+	var golden = []string{
+		"15",
+		"-5",
+		"50",
+		"5",
+		"false",
+		"true",
+		"true",
+		"true",
+		"false",
+		"false",
+		"true",
+		"true",
+		"true",
+		"false",
 	}
 	for i, input := range inputs {
 		l := lexer.New(input)

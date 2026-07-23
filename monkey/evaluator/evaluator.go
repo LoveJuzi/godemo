@@ -34,6 +34,13 @@ func (e *Evaluator) EvalImpl(node ast.Node) object.Object {
 	panic(fmt.Sprintf("unknown node type: %d", node.Kind()))
 }
 
+func (e *Evaluator) nativeBoolToBooleanObject(input bool) object.Object {
+	if input {
+		return TRUE
+	}
+	return FALSE
+}
+
 func (e *Evaluator) evalProgram(node ast.Node) object.Object {
 	var program = node.(*ast.Program)
 
@@ -50,6 +57,18 @@ func (e *Evaluator) evalExpressionStatement(node ast.Node) object.Object {
 	var expStmt = node.(*ast.ExpressionStatement)
 
 	return e.EvalImpl(expStmt.Expression)
+}
+
+func (e *Evaluator) evalInfixExpression(node ast.Node) object.Object {
+	var infixExp = node.(*ast.InfixExpression)
+
+	var left = e.EvalImpl(infixExp.Left)
+	var right = e.EvalImpl(infixExp.Right)
+
+	if evalInfixExprFunc, ok := evalInfixExprFuncTable[infixExp.Token.Type]; ok {
+		return evalInfixExprFunc(e, left, right)
+	}
+	panic(fmt.Sprintf("unknown operator: %s %s %s", left.Type(), infixExp.Operator, right.Type()))
 }
 
 func (e *Evaluator) evalPrefixExpression(node ast.Node) object.Object {
@@ -71,10 +90,7 @@ func (e *Evaluator) evalIntegerLiteral(node ast.Node) object.Object {
 
 func (e *Evaluator) evalBoolean(node ast.Node) object.Object {
 	var boolLiteral = node.(*ast.Boolean)
-	if boolLiteral.Value {
-		return TRUE
-	}
-	return FALSE
+	return e.nativeBoolToBooleanObject(boolLiteral.Value)
 }
 
 func (e *Evaluator) evalBangOperatorExpression(right object.Object) object.Object {
@@ -98,6 +114,84 @@ func (e *Evaluator) evalMinusPrefixOperatorExpression(right object.Object) objec
 	panic(fmt.Sprintf("unknown operator: -%s", right.Type()))
 }
 
+func (e *Evaluator) evalPlusInfixExpression(left object.Object, right object.Object) object.Object {
+	if left.Type() == object.INTEGER_OBJ && right.Type() == object.INTEGER_OBJ {
+		var leftValue = left.(*object.Integer).Value
+		var rightValue = right.(*object.Integer).Value
+		return object.NewInteger(leftValue + rightValue)
+	}
+	panic(fmt.Sprintf("unknown operator: %s + %s", left.Type(), right.Type()))
+}
+
+func (e *Evaluator) evalMinusInfixExpression(left object.Object, right object.Object) object.Object {
+	if left.Type() == object.INTEGER_OBJ && right.Type() == object.INTEGER_OBJ {
+		var leftValue = left.(*object.Integer).Value
+		var rightValue = right.(*object.Integer).Value
+		return object.NewInteger(leftValue - rightValue)
+	}
+	panic(fmt.Sprintf("unknown operator: %s - %s", left.Type(), right.Type()))
+}
+
+func (e *Evaluator) evalDivideInfixExpression(left object.Object, right object.Object) object.Object {
+	if left.Type() == object.INTEGER_OBJ && right.Type() == object.INTEGER_OBJ {
+		var leftValue = left.(*object.Integer).Value
+		var rightValue = right.(*object.Integer).Value
+		return object.NewInteger(leftValue / rightValue)
+	}
+	panic(fmt.Sprintf("unknown operator: %s / %s", left.Type(), right.Type()))
+}
+
+func (e *Evaluator) evalMultiplyInfixExpression(left object.Object, right object.Object) object.Object {
+	if left.Type() == object.INTEGER_OBJ && right.Type() == object.INTEGER_OBJ {
+		var leftValue = left.(*object.Integer).Value
+		var rightValue = right.(*object.Integer).Value
+		return object.NewInteger(leftValue * rightValue)
+	}
+	panic(fmt.Sprintf("unknown operator: %s * %s", left.Type(), right.Type()))
+}
+
+func (e *Evaluator) evalEqualInfixExpression(left object.Object, right object.Object) object.Object {
+	if left.Type() == object.INTEGER_OBJ && right.Type() == object.INTEGER_OBJ {
+		var leftValue = left.(*object.Integer).Value
+		var rightValue = right.(*object.Integer).Value
+		return e.nativeBoolToBooleanObject(leftValue == rightValue)
+	}
+	if left.Type() == object.BOOLEAN_OBJ && right.Type() == object.BOOLEAN_OBJ {
+		return e.nativeBoolToBooleanObject(left == right)
+	}
+	panic(fmt.Sprintf("unknown operator: %s == %s", left.Type(), right.Type()))
+}
+
+func (e *Evaluator) evalNotEqualInfixExpression(left object.Object, right object.Object) object.Object {
+	if left.Type() == object.INTEGER_OBJ && right.Type() == object.INTEGER_OBJ {
+		var leftValue = left.(*object.Integer).Value
+		var rightValue = right.(*object.Integer).Value
+		return e.nativeBoolToBooleanObject(leftValue != rightValue)
+	}
+	if left.Type() == object.BOOLEAN_OBJ && right.Type() == object.BOOLEAN_OBJ {
+		return e.nativeBoolToBooleanObject(left != right)
+	}
+	panic(fmt.Sprintf("unknown operator: %s != %s", left.Type(), right.Type()))
+}
+
+func (e *Evaluator) evalLessThanInfixExpression(left object.Object, right object.Object) object.Object {
+	if left.Type() == object.INTEGER_OBJ && right.Type() == object.INTEGER_OBJ {
+		var leftValue = left.(*object.Integer).Value
+		var rightValue = right.(*object.Integer).Value
+		return e.nativeBoolToBooleanObject(leftValue < rightValue)
+	}
+	panic(fmt.Sprintf("unknown operator: %s < %s", left.Type(), right.Type()))
+}
+
+func (e *Evaluator) evalGreaterThanInfixExpression(left object.Object, right object.Object) object.Object {
+	if left.Type() == object.INTEGER_OBJ && right.Type() == object.INTEGER_OBJ {
+		var leftValue = left.(*object.Integer).Value
+		var rightValue = right.(*object.Integer).Value
+		return e.nativeBoolToBooleanObject(leftValue > rightValue)
+	}
+	panic(fmt.Sprintf("unknown operator: %s > %s", left.Type(), right.Type()))
+}
+
 type evalFunc func(e *Evaluator, node ast.Node) object.Object
 
 var evalFuncTable map[ast.NodeType]evalFunc
@@ -106,11 +200,15 @@ type evalPrefixExprFunc func(e *Evaluator, right object.Object) object.Object
 
 var evalPrefixExprFuncTable map[token.TokenType]evalPrefixExprFunc
 
+type evalInfixExprFunc func(e *Evaluator, left object.Object, right object.Object) object.Object
+
+var evalInfixExprFuncTable map[token.TokenType]evalInfixExprFunc
+
 func init() {
 	evalFuncTable = map[ast.NodeType]evalFunc{
 		ast.NodeProgram:             (*Evaluator).evalProgram,
 		ast.NodeExpressionStatement: (*Evaluator).evalExpressionStatement,
-		// ast.NodeInfixExpression:     (*Evaluator).evalInfixExpression,
+		ast.NodeInfixExpression:     (*Evaluator).evalInfixExpression,
 		// ast.NodeIfExpression:        (*Evaluator).evalIfExpression,
 		// ast.NodeBlockStatement:      (*Evaluator).evalBlockStatement,
 		// ast.NodeReturnStatement:     (*Evaluator).evalReturnStatement,
@@ -126,5 +224,16 @@ func init() {
 	evalPrefixExprFuncTable = map[token.TokenType]evalPrefixExprFunc{
 		token.BANG:  (*Evaluator).evalBangOperatorExpression,
 		token.MINUS: (*Evaluator).evalMinusPrefixOperatorExpression,
+	}
+
+	evalInfixExprFuncTable = map[token.TokenType]evalInfixExprFunc{
+		token.PLUS:     (*Evaluator).evalPlusInfixExpression,
+		token.MINUS:    (*Evaluator).evalMinusInfixExpression,
+		token.SLASH:    (*Evaluator).evalDivideInfixExpression,
+		token.ASTERISK: (*Evaluator).evalMultiplyInfixExpression,
+		token.EQ:       (*Evaluator).evalEqualInfixExpression,
+		token.NOT_EQ:   (*Evaluator).evalNotEqualInfixExpression,
+		token.LT:       (*Evaluator).evalLessThanInfixExpression,
+		token.GT:       (*Evaluator).evalGreaterThanInfixExpression,
 	}
 }
