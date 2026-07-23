@@ -141,3 +141,24 @@ func TestEvalIfExpression(t *testing.T) {
 		assert.Equal(t, golden[i], obj.Inspect(), "input: %s", input)
 	}
 }
+
+func TestEvalReturnStatement(t *testing.T) {
+	var inputs = []string{
+		"return 10;",
+		`if (true) { 
+            if(true) { return 10; }
+            return 20;
+        }`,
+	}
+	var golden = []string{
+		"10",
+		"10",
+	}
+
+	for i, input := range inputs {
+		l := lexer.New(input)
+		p := parser.New(l)
+		obj := New(p.ParseProgram()).Eval()
+		assert.Equal(t, golden[i], obj.Inspect(), "input: %s", input)
+	}
+}

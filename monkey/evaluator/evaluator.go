@@ -48,6 +48,9 @@ func (e *Evaluator) evalProgram(node ast.Node) object.Object {
 
 	for _, statement := range program.Statements {
 		result = e.EvalImpl(statement)
+		if result.Type() == object.RETURN_VALUE_OBJ {
+			return result.(*object.ReturnValue).Value
+		}
 	}
 
 	return result
@@ -103,9 +106,20 @@ func (e *Evaluator) evalBlockStatement(node ast.Node) object.Object {
 
 	for _, statement := range blockStmt.Statements {
 		result = e.EvalImpl(statement)
+		if result.Type() == object.RETURN_VALUE_OBJ {
+			return result
+		}
 	}
 
 	return result
+}
+
+func (e *Evaluator) evalReturnStatement(node ast.Node) object.Object {
+	var returnStmt = node.(*ast.ReturnStatement)
+
+	var value = e.EvalImpl(returnStmt.ReturnValue)
+
+	return object.NewReturnValue(value)
 }
 
 func (e *Evaluator) isTruthy(obj object.Object) bool {
@@ -251,7 +265,7 @@ func init() {
 		ast.NodeInfixExpression:     (*Evaluator).evalInfixExpression,
 		ast.NodeIfExpression:        (*Evaluator).evalIfExpression,
 		ast.NodeBlockStatement:      (*Evaluator).evalBlockStatement,
-		// ast.NodeReturnStatement:     (*Evaluator).evalReturnStatement,
+		ast.NodeReturnStatement:     (*Evaluator).evalReturnStatement,
 		// ast.NodeLetStatement:        (*Evaluator).evalLetStatement,
 		// ast.NodeIdentifier:          (*Evaluator).evalIdentifier,
 		// ast.NodeFunctionLiteral:     (*Evaluator).evalFunctionLiteral,
