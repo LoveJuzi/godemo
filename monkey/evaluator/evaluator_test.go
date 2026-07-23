@@ -162,3 +162,23 @@ func TestEvalReturnStatement(t *testing.T) {
 		assert.Equal(t, golden[i], obj.Inspect(), "input: %s", input)
 	}
 }
+
+func TestError(t *testing.T) {
+	var inputs = []string{
+		`true + false`,
+		`true < 1`,
+		`if (true)  { if (true < 1) { return 10; } else { return 20; } }`,
+	}
+	var golden = []string{
+		"ERROR: unknown operator: BOOLEAN + BOOLEAN",
+		"ERROR: unknown operator: BOOLEAN < INTEGER",
+		"ERROR: unknown operator: BOOLEAN < INTEGER",
+	}
+
+	for i, input := range inputs {
+		l := lexer.New(input)
+		p := parser.New(l)
+		obj := New(p.ParseProgram()).Eval()
+		assert.Equal(t, golden[i], obj.Inspect(), "input: %s", input)
+	}
+}
