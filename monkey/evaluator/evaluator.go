@@ -167,6 +167,61 @@ func (e *Evaluator) evalIdentifier(node ast.Node, env *object.Enviroment) object
 	return object.NewError("identifier not found: %s", ident.Value)
 }
 
+func (e *Evaluator) evalFunctionLiteral(node ast.Node, env *object.Enviroment) object.Object {
+	var funcLiteral = node.(*ast.FunctionLiteral)
+
+	var params = funcLiteral.Parameters
+	var body = funcLiteral.Body
+
+	return object.NewFunction(params, body, env)
+}
+
+func (e *Evaluator) evalCallExpression(node ast.Node, env *object.Enviroment) object.Object {
+	var callExp = node.(*ast.CallExpression)
+
+	var function = e.EvalImpl(callExp.Function, env)
+	if function.Type() == object.ERROR_OBJ {
+		return function
+	}
+
+	var args = []object.Object{}
+	for _, arg := range callExp.Arguments {
+		var evaluatedArg = e.EvalImpl(arg, env)
+		if evaluatedArg.Type() == object.ERROR_OBJ {
+			return evaluatedArg
+		}
+		args = append(args, evaluatedArg)
+	}
+
+	return e.applyFunction(function, args)
+}
+
+func (e *Evaluator) applyFunction(fn object.Object, args []object.Object) object.Object {
+	if fn, ok := fn.(*object.Function); ok {
+		var extendedEnv = e.extendFunctionEnv(fn, args)
+		var evaluated = e.EvalImpl(fn.Body, extendedEnv)
+		return e.unwrapReturnValue(evaluated)
+	}
+	return object.NewError("not a function: %s", fn.Type())
+}
+
+func (e *Evaluator) extendFunctionEnv(fn *object.Function, args []object.Object) *object.Enviroment {
+	var env = object.NewEnclosedEnviroment(fn.Env)
+
+	for paramIdx, param := range fn.Parameters {
+		env.Set(param.Value, args[paramIdx])
+	}
+
+	return env
+}
+
+func (e *Evaluator) unwrapReturnValue(obj object.Object) object.Object {
+	if returnValue, ok := obj.(*object.ReturnValue); ok {
+		return returnValue.Value
+	}
+	return obj
+}
+
 func (e *Evaluator) isTruthy(obj object.Object) bool {
 	switch obj {
 	case TRUE:
@@ -313,10 +368,10 @@ func init() {
 		ast.NodeIfExpression:        (*Evaluator).evalIfExpression,
 		ast.NodeLetStatement:        (*Evaluator).evalLetStatement,
 		ast.NodeIdentifier:          (*Evaluator).evalIdentifier,
-		// ast.NodeFunctionLiteral:     (*Evaluator).evalFunctionLiteral,
-		// ast.NodeCallExpression:      (*Evaluator).evalCallExpression,
-		ast.NodeIntegerLiteral: (*Evaluator).evalIntegerLiteral,
-		ast.NodeBoolean:        (*Evaluator).evalBoolean,
+		ast.NodeFunctionLiteral:     (*Evaluator).evalFunctionLiteral,
+		ast.NodeCallExpression:      (*Evaluator).evalCallExpression,
+		ast.NodeIntegerLiteral:      (*Evaluator).evalIntegerLiteral,
+		ast.NodeBoolean:             (*Evaluator).evalBoolean,
 	}
 
 	evalPrefixExprFuncTable = map[token.TokenType]evalPrefixExprFunc{
