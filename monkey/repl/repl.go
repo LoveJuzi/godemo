@@ -18,7 +18,7 @@ func Start(in io.Reader, out io.Writer) {
 		fmt.Fprintf(out, PROMPT)
 		var scanned = scanner.Scan()
 		if !scanned {
-			return
+			break
 		}
 
 		var line = scanner.Text()
@@ -37,5 +37,9 @@ func Start(in io.Reader, out io.Writer) {
 			io.WriteString(out, "\n")
 		}
 
+	}
+
+	if err := scanner.Err(); err != nil {
+		fmt.Fprintf(out, "error reading input: %v\n", err)
 	}
 }
