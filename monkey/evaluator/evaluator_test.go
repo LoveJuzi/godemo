@@ -182,3 +182,23 @@ func TestError(t *testing.T) {
 		assert.Equal(t, golden[i], obj.Inspect(), "input: %s", input)
 	}
 }
+
+func TestEvalLetStatement(t *testing.T) {
+	var inputs = []string{
+		`let a = 5; a`,
+		`let a = 5; let b = 10; a + b`,
+		`let a = 5; let b = 10; let c = 15; a + b + c`,
+	}
+	var golden = []string{
+		"5",
+		"15",
+		"30",
+	}
+
+	for i, input := range inputs {
+		l := lexer.New(input)
+		p := parser.New(l)
+		obj := New(p.ParseProgram()).Eval()
+		assert.Equal(t, golden[i], obj.Inspect(), "input: %s", input)
+	}
+}
