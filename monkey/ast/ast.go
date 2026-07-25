@@ -93,16 +93,17 @@ func (ls *LetStatement) TokenLiteral() string {
 func (ls *LetStatement) String() string {
 	var out bytes.Buffer
 
-	out.WriteString(ls.TokenLiteral())
-	out.WriteString(" ")
+	out.WriteString("(= ")
 	out.WriteString(ls.Name.String())
-	out.WriteString(" = ")
+	out.WriteString(" ")
 
 	if nil != ls.Value {
 		out.WriteString(ls.Value.String())
+	} else {
+		out.WriteString("nil")
 	}
 
-	out.WriteString(";")
+	out.WriteString(")")
 
 	return out.String()
 }
@@ -128,14 +129,16 @@ func (rs *ReturnStatement) TokenLiteral() string {
 func (rs *ReturnStatement) String() string {
 	var out bytes.Buffer
 
+	out.WriteString("(")
 	out.WriteString(rs.TokenLiteral())
 	out.WriteString(" ")
 
 	if nil != rs.ReturnValue {
 		out.WriteString(rs.ReturnValue.String())
+	} else {
+		out.WriteString("nil")
 	}
-
-	out.WriteString(";")
+	out.WriteString(")")
 
 	return out.String()
 }
@@ -411,11 +414,12 @@ func (fl *FunctionLiteral) String() string {
 		params = append(params, param.String())
 	}
 
-	out.WriteString("fn ")
+	out.WriteString("(fn ")
 	out.WriteString("(")
-	out.WriteString(strings.Join(params, ", "))
+	out.WriteString(strings.Join(params, " "))
 	out.WriteString(") ")
 	out.WriteString(fl.Body.String())
+	out.WriteString(")")
 
 	return out.String()
 }
@@ -435,8 +439,8 @@ func NewCallExpression(
 }
 
 type CallExpression struct {
-	Token     token.Token // '('词法单元
-	Function  Expression  // 标识符或函数字面量
+	Token     token.Token
+	Function  Expression // 标识符或函数字面量
 	Arguments []Expression
 }
 
@@ -453,9 +457,10 @@ func (ce *CallExpression) String() string {
 		args = append(args, a.String())
 	}
 
-	out.WriteString(ce.Function.String())
 	out.WriteString("(")
-	out.WriteString(strings.Join(args, ", "))
+	out.WriteString(ce.Function.String())
+	out.WriteString(" ")
+	out.WriteString(strings.Join(args, " "))
 	out.WriteString(")")
 
 	return out.String()

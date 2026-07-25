@@ -19,10 +19,12 @@ true != false;
 -3 - 2 * 4;
 -(3 + 4) * 6;
 if (!false) {
-	x
+	return x
 } else {
 	3 + 4
 }
+let a = fn (d, e) { d + e; }
+a(1, 2)
 `
 
 	var l = lexer.New(input)
@@ -39,7 +41,9 @@ if (!false) {
 		"(!= true false)",
 		"(- -3 (* 2 4))",
 		"(* -(+ 3 4) 6)",
-		"(if !false (block x) else (block (+ 3 4)))",
+		"(if !false (block (return x)) else (block (+ 3 4)))",
+		"(= a (fn (d e) (block (+ d e))))",
+		"(a 1 2)",
 	})
 }
 

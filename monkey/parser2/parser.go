@@ -23,10 +23,6 @@ func (p *Parser) ParseProgram() *ast.Program {
 
 	for {
 		var tokType = p.peekTokenType()
-		if token.SEMICOLON == tokType {
-			p.l.GetToken()
-			continue
-		}
 		if token.EOF == tokType {
 			p.l.GetToken()
 			break
@@ -51,7 +47,11 @@ func (p *Parser) peekTokenType() token.TokenType {
 func (p *Parser) parseStatement() ast.Statement {
 	var tokType = p.getStatementType(p.peekTokenType())
 	if fn, ok := parseStatementFns[tokType]; ok {
-		return fn(p)
+		var stmt = fn(p)
+		if token.SEMICOLON == p.peekTokenType() {
+			p.l.GetToken()
+		}
+		return stmt
 	}
 	panic(fmt.Sprintf("unknown statement type %v", tokType))
 }
@@ -67,11 +67,31 @@ func (p *Parser) getStatementType(tokType token.TokenType) token.TokenType {
 }
 
 func (p *Parser) parseLetStatement() ast.Statement {
-	return nil
+	var tok = p.l.GetToken()
+
+	if token.IDENT != p.peekTokenType() {
+		p.errors = append(p.errors, "expected IDENT token")
+		return nil
+	}
+	var nameTok = p.l.GetToken()
+	var name = ast.NewIdentifier(nameTok, nameTok.Literal)
+
+	if token.ASSIGN != p.peekTokenType() {
+		p.errors = append(p.errors, "expected ASSIGN token")
+		return nil
+	}
+	p.l.GetToken()
+	var value = p.parseExpression(LOWEST)
+
+	return ast.NewLetStatement(tok, name, value)
 }
 
 func (p *Parser) parseReturnStatement() ast.Statement {
-	return nil
+	var tok = p.l.GetToken()
+
+	var value = p.parseExpression(LOWEST)
+
+	return ast.NewReturnStatement(tok, value)
 }
 
 func (p *Parser) parseExpressionStatement() ast.Statement {
@@ -240,12 +260,112 @@ func (p *Parser) parseElseBlockStatement() *ast.BlockStatement {
 	return p.parseBlockStatement()
 }
 
+func (p *Parser) parseFunctionLiteral() ast.Expression {
+	var tok = p.l.GetToken()
+
+	var parameters = p.parseParameters()
+	if nil == parameters {
+		return nil
+	}
+
+	var body = p.parseBlockStatement()
+	if nil == body {
+		return nil
+	}
+
+	return ast.NewFunctionLiteral(tok, parameters, body)
+}
+
+func (p *Parser) parseParameters() []*ast.Identifier {
+	var btok = p.l.GetToken()
+	if token.LPAREN != btok.Type {
+		p.l.UngetToken(btok)
+		p.errors = append(p.errors, fmt.Sprintf("expected LPAREN as begin token"))
+		return nil
+	}
+
+	var parameters = []*ast.Identifier{}
+
+	for {
+		var tokType = p.peekTokenType()
+		if token.IDENT != tokType {
+			break
+		}
+
+		parameters = append(parameters, p.parseIdentifier().(*ast.Identifier))
+
+		tokType = p.peekTokenType()
+		if token.COMMA == tokType {
+			p.l.GetToken()
+			continue
+		}
+
+		if token.RPAREN != tokType {
+			p.errors = append(p.errors, fmt.Sprintf("expected RPAREN as end token"))
+			return nil
+		}
+	}
+
+	var etok = p.l.GetToken()
+	if token.RPAREN != etok.Type {
+		p.l.UngetToken(etok)
+		p.errors = append(p.errors, fmt.Sprintf("expected RPAREN as end token"))
+		return nil
+	}
+	return parameters
+}
+
 func (p *Parser) parseInfixExpression(left ast.Expression) ast.Expression {
 	var tok = p.l.GetToken()
 	var operator = tok.Literal
 	var precedence = precedences[tok.Type]
 	var right = p.parseExpression(precedence)
 	return ast.NewInfixExpression(tok, left, operator, right)
+}
+
+func (p *Parser) parseCallExpression(function ast.Expression) ast.Expression {
+	var arguments = p.parseCallArguments()
+
+	return ast.NewCallExpression(token.New(token.CALL, ""), function, arguments)
+}
+
+func (p *Parser) parseCallArguments() []ast.Expression {
+	var btok = p.l.GetToken()
+	if token.LPAREN != btok.Type {
+		p.l.UngetToken(btok)
+		p.errors = append(p.errors, fmt.Sprintf("expected LPAREN as begin token"))
+		return nil
+	}
+
+	var args = []ast.Expression{}
+
+	for {
+		var tokType = p.peekTokenType()
+		if token.RPAREN == tokType {
+			break
+		}
+
+		args = append(args, p.parseExpression(LOWEST))
+
+		tokType = p.peekTokenType()
+		if token.COMMA == tokType {
+			p.l.GetToken()
+			continue
+		}
+
+		if token.RPAREN != tokType {
+			p.errors = append(p.errors, fmt.Sprintf("expected RPAREN as end token"))
+			return nil
+		}
+	}
+
+	var etok = p.l.GetToken()
+	if token.RPAREN != etok.Type {
+		p.l.UngetToken(etok)
+		p.errors = append(p.errors, fmt.Sprintf("expected RPAREN as end token"))
+		return nil
+	}
+	return args
 }
 
 const (
@@ -291,15 +411,15 @@ func init() {
 	}
 
 	prefixParseFns = map[token.TokenType]prefixParseFn{
-		token.IDENT:  (*Parser).parseIdentifier,
-		token.INT:    (*Parser).parseIntegerLiteral,
-		token.BANG:   (*Parser).parsePrefixExpression,
-		token.MINUS:  (*Parser).parsePrefixExpression,
-		token.TRUE:   (*Parser).parseBoolean,
-		token.FALSE:  (*Parser).parseBoolean,
-		token.LPAREN: (*Parser).parseGroupedExpression,
-		token.IF:     (*Parser).parseIfExpression,
-		// token.FUNCTION: (*Parser).parseFunctionLiteral,
+		token.IDENT:    (*Parser).parseIdentifier,
+		token.INT:      (*Parser).parseIntegerLiteral,
+		token.BANG:     (*Parser).parsePrefixExpression,
+		token.MINUS:    (*Parser).parsePrefixExpression,
+		token.TRUE:     (*Parser).parseBoolean,
+		token.FALSE:    (*Parser).parseBoolean,
+		token.LPAREN:   (*Parser).parseGroupedExpression,
+		token.IF:       (*Parser).parseIfExpression,
+		token.FUNCTION: (*Parser).parseFunctionLiteral,
 	}
 
 	infixParseFns = map[token.TokenType]infixParseFn{
@@ -313,6 +433,6 @@ func init() {
 		token.LT:     (*Parser).parseInfixExpression,
 		token.GT:     (*Parser).parseInfixExpression,
 
-		// token.LPAREN: (*Parser).parseCallExpression,
+		token.LPAREN: (*Parser).parseCallExpression,
 	}
 }

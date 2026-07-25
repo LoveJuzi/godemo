@@ -70,6 +70,7 @@ const (
 
 	// EXPRESSION
 	EXPRESSION = "EXPRESSION"
+	CALL       = "CALL"
 )
 
 type TokenType string
