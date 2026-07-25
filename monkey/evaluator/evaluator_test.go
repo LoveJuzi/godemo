@@ -13,7 +13,7 @@ func TestEvalIntegerLiteral(t *testing.T) {
 	var input = "15"
 
 	l := lexer.New(input)
-	p := parser.New(l)
+	p := parser.NewParser(l)
 	eval := New(p.ParseProgram())
 	obj := eval.Eval()
 	assert.Equal(t, "15", obj.Inspect())
@@ -30,7 +30,7 @@ func TestEvalBoolean(t *testing.T) {
 	}
 	for i, input := range inputs {
 		l := lexer.New(input)
-		p := parser.New(l)
+		p := parser.NewParser(l)
 		obj := New(p.ParseProgram()).Eval()
 		assert.Equal(t, golden[i], obj.Inspect(), "input: %s", input)
 	}
@@ -55,7 +55,7 @@ func TestEvalBangOperator(t *testing.T) {
 	}
 	for i, input := range inputs {
 		l := lexer.New(input)
-		p := parser.New(l)
+		p := parser.NewParser(l)
 		obj := New(p.ParseProgram()).Eval()
 		assert.Equal(t, golden[i], obj.Inspect(), "input: %s", input)
 	}
@@ -74,7 +74,7 @@ func TestEvalMinusPrefixOperator(t *testing.T) {
 	}
 	for i, input := range inputs {
 		l := lexer.New(input)
-		p := parser.New(l)
+		p := parser.NewParser(l)
 		obj := New(p.ParseProgram()).Eval()
 		assert.Equal(t, golden[i], obj.Inspect(), "input: %s", input)
 	}
@@ -115,7 +115,7 @@ func TestEvalInfixOperator(t *testing.T) {
 	}
 	for i, input := range inputs {
 		l := lexer.New(input)
-		p := parser.New(l)
+		p := parser.NewParser(l)
 		obj := New(p.ParseProgram()).Eval()
 		assert.Equal(t, golden[i], obj.Inspect(), "input: %s", input)
 	}
@@ -136,7 +136,7 @@ func TestEvalIfExpression(t *testing.T) {
 	}
 	for i, input := range inputs {
 		l := lexer.New(input)
-		p := parser.New(l)
+		p := parser.NewParser(l)
 		obj := New(p.ParseProgram()).Eval()
 		assert.Equal(t, golden[i], obj.Inspect(), "input: %s", input)
 	}
@@ -157,7 +157,7 @@ func TestEvalReturnStatement(t *testing.T) {
 
 	for i, input := range inputs {
 		l := lexer.New(input)
-		p := parser.New(l)
+		p := parser.NewParser(l)
 		obj := New(p.ParseProgram()).Eval()
 		assert.Equal(t, golden[i], obj.Inspect(), "input: %s", input)
 	}
@@ -177,7 +177,7 @@ func TestError(t *testing.T) {
 
 	for i, input := range inputs {
 		l := lexer.New(input)
-		p := parser.New(l)
+		p := parser.NewParser(l)
 		obj := New(p.ParseProgram()).Eval()
 		assert.Equal(t, golden[i], obj.Inspect(), "input: %s", input)
 	}
@@ -197,7 +197,7 @@ func TestEvalLetStatement(t *testing.T) {
 
 	for i, input := range inputs {
 		l := lexer.New(input)
-		p := parser.New(l)
+		p := parser.NewParser(l)
 		obj := New(p.ParseProgram()).Eval()
 		assert.Equal(t, golden[i], obj.Inspect(), "input: %s", input)
 	}
@@ -213,7 +213,7 @@ func TestClosure(t *testing.T) {
 
 	for i, input := range inputs {
 		l := lexer.New(input)
-		p := parser.New(l)
+		p := parser.NewParser(l)
 		obj := New(p.ParseProgram()).Eval()
 		assert.Equal(t, golden[i], obj.Inspect(), "input: %s", input)
 	}
