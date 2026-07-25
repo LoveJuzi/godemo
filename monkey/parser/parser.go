@@ -74,7 +74,7 @@ func (p *Parser) parseLetStatement() ast.Statement {
 		return nil
 	}
 	var nameTok = p.l.GetToken()
-	var name = ast.NewIdentifier(nameTok, nameTok.Literal)
+	var name = ast.NewIdentifier(nameTok.Literal)
 
 	if token.ASSIGN != p.peekTokenType() {
 		p.errors = append(p.errors, "expected ASSIGN token")
@@ -95,9 +95,8 @@ func (p *Parser) parseReturnStatement() ast.Statement {
 }
 
 func (p *Parser) parseExpressionStatement() ast.Statement {
-	var tok = token.New(token.EXPRESSION, "")
 	var expression = p.parseExpression(LOWEST)
-	return ast.NewExpressionStatement(tok, expression)
+	return ast.NewExpressionStatement(expression)
 }
 
 func (p *Parser) parseExpression(precedence int) ast.Expression {
@@ -131,7 +130,7 @@ func (p *Parser) parsePrecedence(leftExp ast.Expression, precedence int) ast.Exp
 
 func (p *Parser) parseIdentifier() ast.Expression {
 	var tok = p.l.GetToken()
-	return ast.NewIdentifier(tok, tok.Literal)
+	return ast.NewIdentifier(tok.Literal)
 }
 
 func (p *Parser) parseIntegerLiteral() ast.Expression {
@@ -141,7 +140,7 @@ func (p *Parser) parseIntegerLiteral() ast.Expression {
 
 	if tmpVal, ok := strconv.ParseInt(tok.Literal, 0, 64); nil == ok {
 		value = tmpVal
-		return ast.NewIntegerLiteral(tok, value)
+		return ast.NewIntegerLiteral(tok.Literal, value)
 	}
 
 	p.errors = append(p.errors, fmt.Sprintf("could not parse %q as integer", tok.Literal))
@@ -326,7 +325,7 @@ func (p *Parser) parseInfixExpression(left ast.Expression) ast.Expression {
 func (p *Parser) parseCallExpression(function ast.Expression) ast.Expression {
 	var arguments = p.parseCallArguments()
 
-	return ast.NewCallExpression(token.New(token.CALL, ""), function, arguments)
+	return ast.NewCallExpression(function, arguments)
 }
 
 func (p *Parser) parseCallArguments() []ast.Expression {
