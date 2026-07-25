@@ -41,6 +41,10 @@ type Expression interface {
 	expressionNode()
 }
 
+func NewProgram() *Program {
+	return &Program{Statements: []Statement{}}
+}
+
 type Program struct {
 	Statements []Statement
 }
@@ -227,10 +231,8 @@ func (pe *PrefixExpression) TokenLiteral() string {
 func (pe *PrefixExpression) String() string {
 	var out bytes.Buffer
 
-	out.WriteString("(")
 	out.WriteString(pe.Operator)
 	out.WriteString(pe.Right.String())
-	out.WriteString(")")
 
 	return out.String()
 }
@@ -266,9 +268,9 @@ func (ie *InfixExpression) String() string {
 	var out bytes.Buffer
 
 	out.WriteString("(")
-	out.WriteString(ie.Left.String())
-	out.WriteString(" ")
 	out.WriteString(ie.Operator)
+	out.WriteString(" ")
+	out.WriteString(ie.Left.String())
 	out.WriteString(" ")
 	out.WriteString(ie.Right.String())
 	out.WriteString(")")
@@ -329,7 +331,7 @@ func (ie *IfExpression) TokenLiteral() string {
 func (ie *IfExpression) String() string {
 	var out bytes.Buffer
 
-	out.WriteString("if ")
+	out.WriteString("(if ")
 	out.WriteString(ie.Condition.String())
 	out.WriteString(" ")
 	out.WriteString(ie.Consequence.String())
@@ -338,6 +340,7 @@ func (ie *IfExpression) String() string {
 		out.WriteString(" else ")
 		out.WriteString(ie.Alternative.String())
 	}
+	out.WriteString(")")
 
 	return out.String()
 }
@@ -369,9 +372,9 @@ func (bs *BlockStatement) String() string {
 		statements = append(statements, s.String())
 	}
 
-	out.WriteString("{")
+	out.WriteString("(block ")
 	out.WriteString(strings.Join(statements, " "))
-	out.WriteString("}")
+	out.WriteString(")")
 
 	return out.String()
 }

@@ -67,6 +67,9 @@ const (
 	IF       = "IF"
 	ELSE     = "ELSE"
 	RETURN   = "RETURN"
+
+	// EXPRESSION
+	EXPRESSION = "EXPRESSION"
 )
 
 type TokenType string
