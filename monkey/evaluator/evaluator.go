@@ -29,8 +29,8 @@ func (e *Evaluator) Eval() object.Object {
 }
 
 func (e *Evaluator) EvalImpl(node ast.Node, env *object.Enviroment) object.Object {
-	if evalFunc, ok := evalFuncTable[node.Kind()]; ok {
-		return evalFunc(e, node, env)
+	if evalFn, ok := evalFns[node.Kind()]; ok {
+		return evalFn(e, node, env)
 	}
 	return object.NewError("unknown node type: %d", node.Kind())
 }
@@ -103,8 +103,8 @@ func (e *Evaluator) evalPrefixExpression(node ast.Node, env *object.Enviroment) 
 		return right
 	}
 
-	if evalPrefixExprFunc, ok := evalPrefixExprFuncTable[prefixExp.Token.Type]; ok {
-		return evalPrefixExprFunc(e, right)
+	if fn, ok := evalPrefixExprFns[prefixExp.Token.Type]; ok {
+		return fn(e, right)
 	}
 	return object.NewError("unknown operator: %s", prefixExp.Operator)
 }
@@ -122,8 +122,8 @@ func (e *Evaluator) evalInfixExpression(node ast.Node, env *object.Enviroment) o
 		return right
 	}
 
-	if evalInfixExprFunc, ok := evalInfixExprFuncTable[infixExp.Token.Type]; ok {
-		return evalInfixExprFunc(e, left, right)
+	if fn, ok := evalInfixExprFns[infixExp.Token.Type]; ok {
+		return fn(e, left, right)
 	}
 	return object.NewError("unknown operator: %s %s %s", left.Type(), infixExp.Operator, right.Type())
 }
@@ -345,20 +345,20 @@ func (e *Evaluator) evalGreaterThanInfixExpression(left object.Object, right obj
 	return object.NewError("unknown operator: %s > %s", left.Type(), right.Type())
 }
 
-type evalFunc func(e *Evaluator, node ast.Node, env *object.Enviroment) object.Object
+type (
+	evalFn           func(e *Evaluator, node ast.Node, env *object.Enviroment) object.Object
+	evalPrefixExprFn func(e *Evaluator, right object.Object) object.Object
+	evalInfixExprFn  func(e *Evaluator, left object.Object, right object.Object) object.Object
+)
 
-var evalFuncTable map[ast.NodeType]evalFunc
-
-type evalPrefixExprFunc func(e *Evaluator, right object.Object) object.Object
-
-var evalPrefixExprFuncTable map[token.TokenType]evalPrefixExprFunc
-
-type evalInfixExprFunc func(e *Evaluator, left object.Object, right object.Object) object.Object
-
-var evalInfixExprFuncTable map[token.TokenType]evalInfixExprFunc
+var (
+	evalFns           map[ast.NodeType]evalFn
+	evalPrefixExprFns map[token.TokenType]evalPrefixExprFn
+	evalInfixExprFns  map[token.TokenType]evalInfixExprFn
+)
 
 func init() {
-	evalFuncTable = map[ast.NodeType]evalFunc{
+	evalFns = map[ast.NodeType]evalFn{
 		ast.NodeProgram:             (*Evaluator).evalProgram,
 		ast.NodeBlockStatement:      (*Evaluator).evalBlockStatement,
 		ast.NodeReturnStatement:     (*Evaluator).evalReturnStatement,
@@ -374,12 +374,12 @@ func init() {
 		ast.NodeBoolean:             (*Evaluator).evalBoolean,
 	}
 
-	evalPrefixExprFuncTable = map[token.TokenType]evalPrefixExprFunc{
+	evalPrefixExprFns = map[token.TokenType]evalPrefixExprFn{
 		token.BANG:  (*Evaluator).evalBangOperatorExpression,
 		token.MINUS: (*Evaluator).evalMinusPrefixOperatorExpression,
 	}
 
-	evalInfixExprFuncTable = map[token.TokenType]evalInfixExprFunc{
+	evalInfixExprFns = map[token.TokenType]evalInfixExprFn{
 		token.PLUS:     (*Evaluator).evalPlusInfixExpression,
 		token.MINUS:    (*Evaluator).evalMinusInfixExpression,
 		token.SLASH:    (*Evaluator).evalDivideInfixExpression,
