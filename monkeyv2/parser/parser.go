@@ -5,6 +5,18 @@ import (
 	"monkeyv2/ast"
 	"monkeyv2/lexer"
 	"monkeyv2/token"
+	"strconv"
+)
+
+const (
+	_ int = iota
+	LOWEST
+	EQUALS
+	LESSGREATER
+	SUM
+	PRODUCT
+	PREFIX
+	CALL
 )
 
 type statementParser interface {
@@ -37,11 +49,80 @@ func (letStatementParser) run(p *Parser) ast.Statement {
 	return stmt
 }
 
+type returnStatementParser struct{}
+
+func (returnStatementParser) run(p *Parser) ast.Statement {
+	curToken := p.getToken()
+	stmt := &ast.ReturnStatement{Token: curToken}
+
+	// TODO: 跳过对表达式的处理，知道遇见分号
+	for {
+		curToken = p.getToken()
+		if curToken.Type == token.SEMICOLON {
+			break
+		}
+	}
+
+	return stmt
+}
+
+type expressionStatementParser struct{}
+
+func (expressionStatementParser) run(p *Parser) ast.Statement {
+	curToken := p.getToken()
+	stmt := &ast.ExpressionStatement{Token: curToken}
+	stmt.Expression = p.parseExpression(LOWEST)
+
+	curToken = p.getToken()
+	if curToken.Type != token.SEMICOLON {
+		p.ungetToken(curToken)
+	}
+
+	return stmt
+}
+
 type illegalStatementParser struct{}
 
 func (illegalStatementParser) run(p *Parser) ast.Statement {
 	p.getToken()
 	return nil
+}
+
+type prefixParser interface {
+	run() ast.Expression
+}
+
+type identifierParser struct{ p *Parser }
+
+func (ip identifierParser) run() ast.Expression {
+	curToken := ip.p.getToken()
+	return &ast.Identifier{Token: curToken, Value: curToken.Literal}
+}
+
+type integerLiteralParser struct{ p *Parser }
+
+func (ill integerLiteralParser) run() ast.Expression {
+	curToken := ill.p.getToken()
+	lit := &ast.IntegerLiteral{Token: curToken}
+
+	value, err := strconv.ParseInt(curToken.Literal, 0, 64)
+	if err != nil {
+		ill.p.integerLiteralParserError(curToken)
+		return nil
+	}
+	lit.Value = value
+	return lit
+}
+
+type illegalPrefixParser struct{ p *Parser }
+
+func (ipp illegalPrefixParser) run() ast.Expression {
+	ipp.p.getToken()
+	return nil
+}
+
+type infixParser interface {
+	run(ast.Expression) ast.Expression
 }
 
 type Parser struct {
@@ -56,17 +137,22 @@ func NewParser(l *lexer.Lexer) *Parser {
 	return &Parser{l: l}
 }
 
-func (t *Parser) Errors() []error {
-	return t.errors
+func (p *Parser) Errors() []error {
+	return p.errors
 }
 
-func (t *Parser) expectPeekError(curToken token.Token,
+func (p *Parser) expectPeekError(curToken token.Token,
 	tokenType token.TokenType) {
 	msg := fmt.Errorf(
 		"expected next token to be %s, got %s instead",
 		tokenType,
 		curToken.Type)
-	t.errors = append(t.errors, msg)
+	p.errors = append(p.errors, msg)
+}
+
+func (p *Parser) integerLiteralParserError(curToken token.Token) {
+	msg := fmt.Errorf("could not parser %q as integer", curToken.Literal)
+	p.errors = append(p.errors, msg)
 }
 
 func (t *Parser) ParserProgram() *ast.Program {
@@ -112,7 +198,26 @@ func (t *Parser) getStatementParser() statementParser {
 	switch curToken.Type {
 	case token.LET:
 		return letStatementParser{}
+	case token.RETURN:
+		return returnStatementParser{}
 	default:
-		return illegalStatementParser{}
+		return expressionStatementParser{}
+	}
+}
+
+func (p *Parser) parseExpression(precedence int) ast.Expression {
+	leftExp := p.getPrefixParser().run()
+	return leftExp
+}
+
+func (p *Parser) getPrefixParser() prefixParser {
+	curToken := p.getToken()
+	switch curToken.Type {
+	case token.IDENT:
+		return identifierParser{p: p}
+	case token.INT:
+		return integerLiteralParser{p: p}
+	default:
+		return illegalPrefixParser{p: p}
 	}
 }
