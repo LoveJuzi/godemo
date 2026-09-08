@@ -1,8 +1,11 @@
 package ast
 
-import "monkeyv2/token"
-import "bytes"
-import "fmt"
+import (
+	"bytes"
+	"fmt"
+	"monkeyv2/token"
+	"strings"
+)
 
 type Node interface {
 	TokenLiteral() string
@@ -124,14 +127,6 @@ type PrefixExpression struct {
 	Right    Expression
 }
 
-type Boolean struct {
-	Token token.Token
-	Value bool
-}
-
-func (b *Boolean) TokenLiteral() string { return b.Token.Literal }
-func (b *Boolean) String() string       { return b.Token.Literal }
-
 func (pe *PrefixExpression) TokenLiteral() string { return pe.Token.Literal }
 func (pe *PrefixExpression) String() string {
 	var out bytes.Buffer
@@ -140,6 +135,14 @@ func (pe *PrefixExpression) String() string {
 
 	return out.String()
 }
+
+type Boolean struct {
+	Token token.Token
+	Value bool
+}
+
+func (b *Boolean) TokenLiteral() string { return b.Token.Literal }
+func (b *Boolean) String() string       { return b.Token.Literal }
 
 type InfixExpression struct {
 	Token    token.Token
@@ -179,6 +182,53 @@ func (ie *IfExpression) String() string {
 	return out.String()
 }
 
+type FunctionLiteral struct {
+	Token      token.Token
+	Parameters []*Identifier
+	Body       *BlockStatement
+}
+
+func (fl *FunctionLiteral) TokenLiteral() string { return fl.Token.Literal }
+func (fl *FunctionLiteral) String() string {
+	var out bytes.Buffer
+
+	params := []string{}
+
+	for _, p := range fl.Parameters {
+		params = append(params, p.String())
+	}
+
+	fmt.Fprintf(&out, "%s(%s) %s",
+		fl.Token.Literal,
+		strings.Join(params, ", "),
+		fl.Body.String())
+
+	return out.String()
+}
+
+type CallExpression struct {
+	Token     token.Token
+	Function  Expression
+	Arguments []Expression
+}
+
+func (ce CallExpression) TokenLiteral() string { return ce.Token.Literal }
+func (ce CallExpression) String() string {
+	var out bytes.Buffer
+
+	args := []string{}
+
+	for _, a := range ce.Arguments {
+		args = append(args, a.String())
+	}
+
+	fmt.Fprintf(&out, "%s(%s)",
+		ce.Function.String(),
+		strings.Join(args, ", "))
+
+	return out.String()
+}
+
 type BlockStatement struct {
 	Token      token.Token
 	Statements []Statement
@@ -188,7 +238,7 @@ func (bs *BlockStatement) TokenLiteral() string { return bs.Token.Literal }
 func (bs *BlockStatement) String() string {
 	var out bytes.Buffer
 
-	for _, s:= range bs.Statements {
+	for _, s := range bs.Statements {
 		fmt.Fprintf(&out, "%s", s)
 	}
 
