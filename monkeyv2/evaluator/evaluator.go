@@ -29,6 +29,10 @@ func getEvalObj(node ast.Node) eval {
 		return &evalPrefixExpression{node: node}
 	case *ast.InfixExpression:
 		return &evalInfixExpression{node: node}
+	case *ast.IfExpression:
+		return &evalIfExpression{node: node}
+	case *ast.BlockStatement:
+		return &evalBlockStatement{node: node}
 	default:
 		return &evalUnkonwn{node: node}
 	}
@@ -140,6 +144,39 @@ func (e *evalInfixExpression) getEvalObj(
 
 	default:
 		return &evalUnkonwn{node: e.node}
+	}
+}
+
+type evalIfExpression struct{ node *ast.IfExpression }
+
+func (e *evalIfExpression) run() object.Object {
+	condition := Eval(e.node.Condition)
+
+	if isTruthy(condition) {
+		return Eval(e.node.Consequence)
+	} else if e.node.Alternative != nil {
+		return Eval(e.node.Alternative)
+	} else {
+		return NULL
+	}
+}
+
+type evalBlockStatement struct { node *ast.BlockStatement }
+
+func (e *evalBlockStatement) run() object.Object {
+	return evalStatements(e.node.Statements)
+}
+
+func isTruthy(obj object.Object) bool {
+	switch obj {
+	case NULL:
+		return false
+	case TRUE:
+		return true
+	case FALSE:
+		return false
+	default:
+		return true
 	}
 }
 
